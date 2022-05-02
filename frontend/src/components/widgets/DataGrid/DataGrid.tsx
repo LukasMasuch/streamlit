@@ -15,7 +15,12 @@
  * limitations under the License.
  */
 
-import React, { ReactElement, useState, useLayoutEffect } from "react"
+import React, {
+  ReactElement,
+  useState,
+  useLayoutEffect,
+  useEffect,
+} from "react"
 import {
   DataEditor as GlideDataEditor,
   GridCell,
@@ -57,6 +62,7 @@ export function getColumns(element: Quiver): GridColumnWithCellTemplate[] {
       id: `empty-index`,
       title: "",
       hasMenu: false,
+      width: 100,
       getTemplate: () => {
         return getCellTemplate(GridCellKind.RowID, true)
       },
@@ -73,6 +79,7 @@ export function getColumns(element: Quiver): GridColumnWithCellTemplate[] {
       // Indices currently have empty titles:
       title: "",
       hasMenu: false,
+      width: 100,
       getTemplate: () => {
         return getCellTemplate(GridCellKind.RowID, true)
       },
@@ -102,6 +109,7 @@ export function getColumns(element: Quiver): GridColumnWithCellTemplate[] {
       id: `column-${i}`,
       title: columnTitle,
       hasMenu: false,
+      width: 100,
       getTemplate: () => {
         return getCellTemplate(cellKind, true)
       },
@@ -140,6 +148,11 @@ export function useDataLoader(
   // The columns with the corresponding empty template for every type:
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [columns, setColumns] = useState(() => getColumns(element))
+
+  useEffect(() => {
+    // Update columns when the element changes:
+    setColumns(getColumns(element))
+  }, [element])
 
   // Number of rows of the table minus 1 for the header row:
   const numRows = element.dimensions.rows - 1
@@ -219,38 +232,38 @@ function DataGrid({
 
   const dataEditorRef = React.useRef<DataEditorRef>(null)
 
-  useLayoutEffect(() => {
-    // Without this timeout,the width calculation might fail in a few cases. The timeout ensures
-    // that the execution of this function is placed after the component render in the event loop.
-    setTimeout(() => {
-      // TODO(lukasmasuch): Support use_container_width parameter
+  // useLayoutEffect(() => {
+  //   // Without this timeout,the width calculation might fail in a few cases. The timeout ensures
+  //   // that the execution of this function is placed after the component render in the event loop.
+  //   setTimeout(() => {
+  //     // TODO(lukasmasuch): Support use_container_width parameter
 
-      let adjustedTableWidth = Math.max(
-        columns.length * MIN_COLUMN_WIDTH + 3,
-        MIN_COLUMN_WIDTH + 3
-      )
+  //     let adjustedTableWidth = Math.max(
+  //       columns.length * MIN_COLUMN_WIDTH + 3,
+  //       MIN_COLUMN_WIDTH + 3
+  //     )
 
-      if (numRows) {
-        const firstCell = dataEditorRef.current?.getBounds(0, 0)
-        const lastCell = dataEditorRef.current?.getBounds(
-          columns.length - 1,
-          numRows - 1
-        )
+  //     if (numRows) {
+  //       const firstCell = dataEditorRef.current?.getBounds(0, 0)
+  //       const lastCell = dataEditorRef.current?.getBounds(
+  //         columns.length - 1,
+  //         numRows - 1
+  //       )
 
-        if (firstCell && lastCell) {
-          // Calculate the table width, the +2 corresponds to the table borders
-          adjustedTableWidth = lastCell.x - firstCell.x + lastCell.width + 2
+  //       if (firstCell && lastCell) {
+  //         // Calculate the table width, the +2 corresponds to the table borders
+  //         adjustedTableWidth = lastCell.x - firstCell.x + lastCell.width + 2
 
-          // TODO(lukasmasuch): Also adjust the table height?
-          // const fullTableHeight = lastCell.y - firstCell.y + lastCell.height + 2
-        }
-      }
-      const newWidth = Math.min(adjustedTableWidth, propWidth)
-      if (newWidth !== width) {
-        setWidth(newWidth)
-      }
-    }, 0)
-  })
+  //         // TODO(lukasmasuch): Also adjust the table height?
+  //         // const fullTableHeight = lastCell.y - firstCell.y + lastCell.height + 2
+  //       }
+  //     }
+  //     const newWidth = Math.min(adjustedTableWidth, propWidth)
+  //     if (newWidth !== width) {
+  //       setWidth(newWidth)
+  //     }
+  //   }, 0)
+  // })
 
   const onHeaderClick = React.useCallback(
     (index: number) => {

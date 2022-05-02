@@ -85,24 +85,42 @@ export const ResizableContainer = styled.div<ResizableContainerProps>`
   overflow: hidden;
   position: relative;
   resize: vertical;
+  display: inline-block;
+  max-width: 100%;
   min-height: ${p => p.minHeight}px;
-  width: ${p => p.width}px;
   height: ${p => p.height}px;
   border: 1px solid ${p => p.theme.colors.fadedText05};
 
   > :first-child {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
     height: 100%;
   }
-
   // Hide the resize handle in the right corner. Resizing is still be possible.
   ::-webkit-resizer {
     display: none;
   }
 `
+// export const ResizableContainer = styled.div<ResizableContainerProps>`
+//   overflow: hidden;
+//   position: relative;
+//   resize: vertical;
+//   min-height: ${p => p.minHeight}px;
+//   width: ${p => p.width}px;
+//   height: ${p => p.height}px;
+//   border: 1px solid ${p => p.theme.colors.fadedText05};
+
+//   > :first-child {
+//     position: absolute;
+//     left: 0;
+//     top: 0;
+//     width: 100%;
+//     height: 100%;
+//   }
+
+//   // Hide the resize handle in the right corner. Resizing is still be possible.
+//   ::-webkit-resizer {
+//     display: none;
+//   }
+// `
 interface DataGridContainerProps {
   width: number
   height: number
