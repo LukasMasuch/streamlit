@@ -40,6 +40,7 @@
     "@emotion/serialize": "^1.0.2",
     "@emotion/styled": "^11.8.1",
     "@glideapps/glide-data-grid": "4.0.4-alpha1",
+    "@glideapps/glide-data-grid-cells": "4.0.4-alpha1",
     "@glideapps/glide-data-grid-source": "4.0.4-alpha1",
     "@loaders.gl/core": "^2.2.8",
     "@loaders.gl/csv": "^2.2.8",

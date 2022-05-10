@@ -23,6 +23,9 @@ import {
   BooleanCell,
   NumberCell,
   BubbleCell,
+  UriCell,
+  ImageCell,
+  CustomCell,
 } from "@glideapps/glide-data-grid"
 
 import { DataFrameCell, Quiver, Type as QuiverType } from "src/lib/Quiver"
@@ -32,6 +35,11 @@ export enum ColumnType {
   Number = "number",
   Boolean = "boolean",
   List = "list",
+  Url = "url",
+  Image = "image",
+  BarChart = "bar-chart",
+  LineChart = "line-chart",
+  ProgressChart = "progress-chart",
 }
 
 /**
@@ -153,16 +161,85 @@ export function getCellTemplate(
     } as BubbleCell
   }
 
+  if (type === ColumnType.Url) {
+    return {
+      kind: GridCellKind.Uri,
+      data: "",
+      readonly,
+      allowOverlay: true,
+      style,
+    } as UriCell
+  }
+
+  if (type === ColumnType.Image) {
+    return {
+      kind: GridCellKind.Image,
+      data: [],
+      displayData: [],
+      allowAdd: !readonly,
+      allowOverlay: true,
+      style,
+    } as ImageCell
+  }
+
+  if (type === ColumnType.LineChart) {
+    return {
+      kind: GridCellKind.Custom,
+      allowOverlay: false,
+      copyData: "[]",
+      data: {
+        kind: "sparkline-cell",
+        values: [],
+        displayValues: [],
+        //color: "#77c4c4",
+        graphKind: "line",
+        yAxis: [0, 1],
+      },
+    } as CustomCell
+  }
+
+  if (type === ColumnType.BarChart) {
+    return {
+      kind: GridCellKind.Custom,
+      allowOverlay: false,
+      copyData: "[]",
+      data: {
+        kind: "sparkline-cell",
+        values: [],
+        //color: "#77c4c4",
+        graphKind: "bar",
+        yAxis: [0, 1],
+      },
+    } as CustomCell
+  }
+
+  if (type === ColumnType.ProgressChart) {
+    return {
+      kind: GridCellKind.Custom,
+      allowOverlay: false,
+      copyData: "",
+      data: {
+        kind: "range-cell",
+        min: 0,
+        max: 1,
+        value: 0,
+        step: 0.1,
+        label: `0%`,
+        measureLabel: "100%",
+      },
+    } as CustomCell
+  }
+
   throw new Error(`Unsupported cell type: ${type}`)
 }
 
 /**
  * Returns the sort mode based on the given column type.
  */
-export function getColumnSortMode(columnType: string): string {
+export function getColumnSortMode(columnType: ColumnType): string {
   if (
-    columnType === GridCellKind.Number ||
-    columnType === GridCellKind.RowID
+    columnType === ColumnType.Number ||
+    columnType === ColumnType.ProgressChart
   ) {
     // Smart mode also works correctly for numbers
     return "smart"
@@ -186,7 +263,7 @@ export function fillCellTemplate(
   quiverCell: DataFrameCell,
   cssStyles: string | undefined = undefined
 ): GridCell {
-  let cellKind = cellTemplate.kind
+  let cellKind: GridCellKind | string = cellTemplate.kind
   if (cellTemplate.kind === GridCellKind.Custom) {
     cellKind = (cellTemplate.data as any)?.kind
 
@@ -272,6 +349,62 @@ export function fillCellTemplate(
           ? JSON.parse(JSON.stringify(quiverCell.content))
           : [],
     } as BubbleCell
+  }
+
+  if (cellKind === GridCellKind.Image) {
+    const imageUrls =
+      quiverCell.content !== undefined && quiverCell.content !== null
+        ? [String(quiverCell.content)]
+        : []
+
+    return {
+      ...cellTemplate,
+      data: imageUrls,
+      displayData: imageUrls,
+    } as ImageCell
+  }
+
+  if (cellKind === GridCellKind.Uri) {
+    return {
+      ...cellTemplate,
+      data:
+        quiverCell.content !== undefined && quiverCell.content !== null
+          ? String(quiverCell.content)
+          : "",
+    } as UriCell
+  }
+
+  if (cellKind === "sparkline-cell") {
+    const chartData = JSON.parse(
+      JSON.stringify(quiverCell.content)
+    ) as number[]
+    return {
+      ...cellTemplate,
+      copyData: JSON.stringify(quiverCell.content),
+      data: {
+        ...(cellTemplate as CustomCell)?.data,
+        values: chartData,
+        displayValues: chartData.map(x =>
+          (Math.round(x * 100) / 100).toString()
+        ),
+      },
+    } as CustomCell
+  }
+
+  if (cellKind === "range-cell") {
+    return {
+      ...cellTemplate,
+      copyData: String(quiverCell.content),
+      data: {
+        ...(cellTemplate as CustomCell)?.data,
+        value: quiverCell.content,
+        label: `${
+          quiverCell.content
+            ? Math.round((quiverCell.content as number) * 100).toString()
+            : "0"
+        }%`,
+      },
+    } as CustomCell
   }
 
   throw new Error(`Unsupported cell kind: ${cellKind}`)

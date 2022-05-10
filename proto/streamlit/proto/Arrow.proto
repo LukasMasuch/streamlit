@@ -19,6 +19,8 @@ syntax = "proto3";
 message Arrow {
   bytes data = 1;
   Styler styler = 2;
+  // Colum configuration as JSON
+  string columns = 3;
 }
 
 message Styler {

@@ -27,6 +27,7 @@ import {
   GridMouseEventArgs,
 } from "@glideapps/glide-data-grid"
 import { useColumnSort } from "@glideapps/glide-data-grid-source"
+import { useExtraCells } from "@glideapps/glide-data-grid-cells"
 
 import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { Quiver } from "src/lib/Quiver"
@@ -53,6 +54,12 @@ type GridColumnWithCellTemplate = GridColumn & {
   columnType: ColumnType
 }
 
+interface ColumnConfigProps {
+  width?: number
+  title?: string
+  type?: string
+}
+
 /**
  * Returns a list of glide-data-grid compatible columns based on a Quiver instance.
  */
@@ -73,6 +80,10 @@ export function getColumns(element: Quiver): GridColumnWithCellTemplate[] {
     } as GridColumnWithCellTemplate)
     return columns
   }
+
+  const columnsConfig = element.widget.columns
+    ? JSON.parse(element.widget.columns)
+    : {}
 
   const numIndices = element.types?.index?.length ?? 0
   const numColumns = element.columns?.[0]?.length ?? 0
@@ -96,17 +107,33 @@ export function getColumns(element: Quiver): GridColumnWithCellTemplate[] {
     const columnTitle = element.columns[0][i]
 
     const quiverType = element.types.data[i]
-    const columnType = determineColumnType(quiverType)
+    const columnConfig =
+      columnTitle in columnsConfig
+        ? (columnsConfig[columnTitle] as ColumnConfigProps)
+        : ({} as ColumnConfigProps)
 
-    columns.push({
+    const columnType = columnConfig.type
+      ? (columnConfig.type.toLowerCase() as ColumnType)
+      : determineColumnType(quiverType)
+
+    let columnData = {
       id: `column-${columnTitle}-${i}`,
-      title: columnTitle,
+      title: columnConfig.title ? columnConfig.title : columnTitle,
       hasMenu: false,
       getTemplate: () => {
         return getCellTemplate(columnType, true)
       },
       columnType,
-    } as GridColumnWithCellTemplate)
+    } as GridColumnWithCellTemplate
+
+    if (columnConfig.width) {
+      columnData = {
+        ...columnData,
+        width: columnConfig.width,
+      } as GridColumnWithCellTemplate
+    }
+
+    columns.push(columnData)
   }
   return columns
 }
@@ -241,6 +268,8 @@ function DataGrid({
   height: propHeight,
   width: propWidth,
 }: DataGridProps): ReactElement {
+  const extraCellArgs = useExtraCells()
+
   const [width, setWidth] = useState(propWidth)
   const [sort, setSort] = React.useState<ColumnSortConfig>()
 
@@ -398,6 +427,8 @@ function DataGrid({
             setIsFocused(true)
           }
         }}
+        provideEditor={extraCellArgs.provideEditor}
+        drawCell={extraCellArgs.drawCell}
       />
     </ThemedDataGridContainer>
   )

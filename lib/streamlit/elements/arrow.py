@@ -14,6 +14,7 @@
 
 from collections.abc import Iterable
 from typing import Any, Dict, List, Optional, Union, cast
+import json
 
 from numpy import ndarray
 from pandas import DataFrame
@@ -93,6 +94,7 @@ class ArrowMixin:
         data: Data = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        columns: Optional[Dict[Union[int, str], dict]] = None,
     ) -> "streamlit.delta_generator.DeltaGenerator":
         """Display a dataframe with our new interactive table component.
 
@@ -129,6 +131,10 @@ class ArrowMixin:
         >>> st.experimental_data_grid(df.style.highlight_max(axis=0))
 
         """
+
+        if columns is None:
+            columns = {}
+
         # If pandas.Styler uuid is not provided, a hash of the position
         # of the element will be used. This will cause a rerender of the table
         # when the position of the element is changed.
@@ -137,6 +143,7 @@ class ArrowMixin:
 
         proto = ArrowProto()
         marshall(proto, data, default_uuid)
+        proto.columns = json.dumps(columns)
         return cast(
             "streamlit.delta_generator.DeltaGenerator",
             self.dg._enqueue(
