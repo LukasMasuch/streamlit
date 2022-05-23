@@ -71,6 +71,7 @@ import {
   IGitInfo,
   GitInfo,
   IAppPage,
+  AppProfile,
 } from "src/autogen/proto"
 import { without, concat } from "lodash"
 
@@ -425,6 +426,7 @@ export class App extends PureComponent<Props, State> {
           this.handleGitInfoChanged(gitInfo),
         scriptFinished: (status: ForwardMsg.ScriptFinishedStatus) =>
           this.handleScriptFinished(status),
+        appProfile: (appProfile: AppProfile) => console.log(appProfile),
       })
     } catch (e) {
       const err = ensureError(e)

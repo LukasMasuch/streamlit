@@ -30,8 +30,6 @@ from streamlit.credentials import Credentials
 from streamlit.in_memory_file_manager import in_memory_file_manager
 from streamlit.logger import get_logger
 from streamlit.metrics_util import Installation
-from streamlit.proto.AppProfile_pb2 import AppProfile
-from streamlit.proto.AppProfile_pb2 import Fingerprint
 from streamlit.proto.ClientState_pb2 import ClientState
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.proto.GitInfo_pb2 import GitInfo
@@ -139,7 +137,6 @@ class AppSession:
         self._scriptrunner: Optional[ScriptRunner] = None
 
         self._last_run_timestamp: float = timer()
-        self._fingerprints: List[Fingerprint] = []
 
         # This needs to be lazily imported to avoid a dependency cycle.
         from streamlit.state import SessionState
@@ -282,18 +279,6 @@ class AppSession:
         # current ScriptRunner is shutting down and cannot handle a rerun
         # request - so we'll create and start a new ScriptRunner.
         self._create_scriptrunner(rerun_data)
-
-    def add_fingerprint(
-        self, name: str, arg_types: List[str], return_type: str, exec_time: float
-    ):
-        self._fingerprints.append(
-            Fingerprint(
-                name=name,
-                arg_types=arg_types,
-                return_type=return_type,
-                exec_time=exec_time,
-            )
-        )
 
     def _create_scriptrunner(self, initial_rerun_data: RerunData) -> None:
         """Create and run a new ScriptRunner with the given RerunData."""
@@ -462,11 +447,6 @@ class AppSession:
 
             script_succeeded = event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
 
-            if config.get_option("browser.gatherUsageStats"):
-                self._enqueue_forward_msg(
-                    self._create_app_profile_message(timer() - self._last_run_timestamp)
-                )
-
             script_finished_msg = self._create_script_finished_message(
                 ForwardMsg.FINISHED_SUCCESSFULLY
                 if script_succeeded
@@ -570,13 +550,6 @@ class AppSession:
         """Create and return a script_finished ForwardMsg."""
         msg = ForwardMsg()
         msg.script_finished = status
-        return msg
-
-    def _create_app_profile_message(self, exec_time: float) -> ForwardMsg:
-        """Create and return an AppProfile ForwardMsg."""
-        msg = ForwardMsg()
-        msg.app_profile.fingerprints.extend(self._fingerprints)
-        msg.app_profile.exec_time = exec_time
         return msg
 
     def _create_exception_message(self, e: BaseException) -> ForwardMsg:

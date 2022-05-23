@@ -21,6 +21,7 @@ import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.TextArea_pb2 import TextArea as TextAreaProto
 from streamlit.proto.TextInput_pb2 import TextInput as TextInputProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.state import (
     register_widget,
     WidgetArgs,
@@ -33,6 +34,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class TextWidgetsMixin:
+    @track_fingerprint
     def text_input(
         self,
         label: str,

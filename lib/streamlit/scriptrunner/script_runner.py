@@ -18,7 +18,8 @@ import threading
 import types
 from contextlib import contextmanager
 from enum import Enum
-from typing import Optional, Callable
+from typing import Optional, Callable, List
+from timeit import default_timer as timer
 
 from blinker import Signal
 
@@ -29,6 +30,7 @@ from streamlit import util
 from streamlit.error_util import handle_uncaught_app_exception
 from streamlit.in_memory_file_manager import in_memory_file_manager
 from streamlit.logger import get_logger
+from streamlit.proto.AppProfile_pb2 import Fingerprint
 from streamlit.proto.ClientState_pb2 import ClientState
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.session_data import SessionData
@@ -392,6 +394,8 @@ class ScriptRunner:
 
         LOGGER.debug("Running script %s", rerun_data)
 
+        start_time: float = timer()
+
         # Reset DeltaGenerators, widgets, media files.
         in_memory_file_manager.clear_session_files()
 
@@ -515,6 +519,11 @@ class ScriptRunner:
             handle_uncaught_app_exception(e)
 
         finally:
+            if config.get_option("browser.gatherUsageStats"):
+                app_profile_msg = _create_app_profile_message(
+                    ctx._fingerprints, timer() - start_time
+                )
+                ctx.enqueue(app_profile_msg)
             self._on_script_finished(ctx)
 
         # Use _log_if_error() to make sure we never ever ever stop running the
@@ -573,6 +582,16 @@ class RerunException(ScriptControlException):
 
     def __repr__(self) -> str:
         return util.repr_(self)
+
+
+def _create_app_profile_message(
+    fingerprints: List[Fingerprint], exec_time: float
+) -> ForwardMsg:
+    """Create and return an AppProfile ForwardMsg."""
+    msg = ForwardMsg()
+    msg.app_profile.fingerprints.extend(fingerprints)
+    msg.app_profile.exec_time = exec_time
+    return msg
 
 
 def _clean_problem_modules() -> None:

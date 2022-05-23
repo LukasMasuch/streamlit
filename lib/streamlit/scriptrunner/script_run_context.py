@@ -15,6 +15,9 @@
 import threading
 from typing import Dict, Optional, List, Callable, Set
 from typing_extensions import Final
+from timeit import default_timer as timer
+from typing import Any
+from functools import wraps
 
 import attr
 
@@ -23,8 +26,39 @@ from streamlit.logger import get_logger
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.state import SafeSessionState
 from streamlit.uploaded_file_manager import UploadedFileManager
+from streamlit.proto.AppProfile_pb2 import Fingerprint, AppProfile
 
 LOGGER: Final = get_logger(__name__)
+
+
+def get_type_name(obj: Any) -> str:
+    obj_type = type(obj)
+    if obj_type.__module__ == "builtins":
+        return obj_type.__qualname__
+    return f"{obj_type.__module__}.{obj_type.__qualname__}"
+
+
+def track_fingerprint(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+
+        exec_start = timer()
+        result = f(*args, **kwargs)
+
+        ctx = get_script_run_ctx()
+        arg_types: List[str] = [f"{i}: {arg}" for i, arg in enumerate(args[1:])]
+        arg_types.extend(
+            [f"{kwarg}: {get_type_name(kwargs[kwarg])}" for kwarg in kwargs]
+        )
+        ctx.add_fingerprint(
+            name=f.__qualname__,
+            arg_types=arg_types,
+            return_type=get_type_name(result),
+            exec_time=float(timer() - exec_start),
+        )
+        return result
+
+    return wrap
 
 
 @attr.s(auto_attribs=True, slots=True)
@@ -46,6 +80,7 @@ class ScriptRunContext:
     session_state: SafeSessionState
     uploaded_file_mgr: UploadedFileManager
     page_name: str
+    _fingerprints: List[Fingerprint] = []
 
     _set_page_config_allowed: bool = True
     _has_script_started: bool = False
@@ -63,9 +98,22 @@ class ScriptRunContext:
         # Permit set_page_config when the ScriptRunContext is reused on a rerun
         self._set_page_config_allowed = True
         self._has_script_started = False
+        self._fingerprints = []
 
     def on_script_start(self) -> None:
         self._has_script_started = True
+
+    def add_fingerprint(
+        self, name: str, arg_types: List[str], return_type: str, exec_time: float
+    ):
+        self._fingerprints.append(
+            Fingerprint(
+                name=name,
+                arg_types=arg_types,
+                return_type=return_type,
+                exec_time=exec_time,
+            )
+        )
 
     def enqueue(self, msg: ForwardMsg) -> None:
         """Enqueue a ForwardMsg for this context's session."""
