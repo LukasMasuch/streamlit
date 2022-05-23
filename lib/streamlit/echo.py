@@ -18,10 +18,13 @@ import textwrap
 import traceback
 from typing import List, Iterable, Optional
 
+from streamlit.scriptrunner.script_run_context import track_fingerprint
+
 _SPACES_RE = re.compile("\\s*")
 _EMPTY_LINE_RE = re.compile("\\s*\n")
 
 
+@track_fingerprint
 @contextlib.contextmanager
 def echo(code_location="above"):
     """Use in a `with` block to draw some code on the app, then execute it.

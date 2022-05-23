@@ -46,7 +46,9 @@ def track_fingerprint(f):
         result = f(*args, **kwargs)
 
         ctx = get_script_run_ctx()
-        arg_types: List[str] = [f"{i}: {arg}" for i, arg in enumerate(args[1:])]
+        arg_types: List[str] = [
+            f"{i}: {get_type_name(arg)}" for i, arg in enumerate(args[1:])
+        ]
         arg_types.extend(
             [f"{kwarg}: {get_type_name(kwargs[kwarg])}" for kwarg in kwargs]
         )

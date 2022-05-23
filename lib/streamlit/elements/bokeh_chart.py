@@ -21,11 +21,13 @@ from typing import cast
 import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.BokehChart_pb2 import BokehChart as BokehChartProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 ST_BOKEH_VERSION = "2.4.1"
 
 
 class BokehMixin:
+    @track_fingerprint
     def bokeh_chart(self, figure, use_container_width=False):
         """Display an interactive Bokeh chart.
 

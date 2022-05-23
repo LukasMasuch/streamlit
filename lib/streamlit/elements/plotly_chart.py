@@ -23,6 +23,7 @@ from streamlit.legacy_caching import caching
 from streamlit import type_util
 from streamlit.logger import get_logger
 from streamlit.proto.PlotlyChart_pb2 import PlotlyChart as PlotlyChartProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 if TYPE_CHECKING:
     import matplotlib
@@ -64,6 +65,7 @@ FigureOrData: TypeAlias = Union[
 
 
 class PlotlyMixin:
+    @track_fingerprint
     def plotly_chart(
         self,
         figure_or_data: FigureOrData,

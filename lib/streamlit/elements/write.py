@@ -22,6 +22,7 @@ import numpy as np
 
 from streamlit import type_util
 from streamlit.errors import StreamlitAPIException
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.state import SessionStateProxy
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ HELP_TYPES: Final[Tuple[Type[Any], ...]] = (
 
 
 class WriteMixin:
+    @track_fingerprint
     def write(self, *args: Any, **kwargs: Any) -> None:
         """Write arguments to the app.
 

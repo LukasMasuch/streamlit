@@ -42,6 +42,7 @@ from streamlit.legacy_caching.hashing import update_hash, HashFuncsDict
 from streamlit.legacy_caching.hashing import HashReason
 from streamlit.logger import get_logger
 import streamlit as st
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.stats import CacheStat, CacheStatsProvider
 
 

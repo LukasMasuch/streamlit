@@ -15,6 +15,7 @@
 from typing import cast, TYPE_CHECKING
 
 from streamlit.proto.Alert_pb2 import Alert as AlertProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from .utils import clean_text
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 
 class AlertMixin:
+    @track_fingerprint
     def error(self, body: str) -> "DeltaGenerator":
         """Display error message.
 
@@ -40,6 +42,7 @@ class AlertMixin:
         alert_proto.format = AlertProto.ERROR
         return self.dg._enqueue("alert", alert_proto)
 
+    @track_fingerprint
     def warning(self, body: str) -> "DeltaGenerator":
         """Display warning message.
 
@@ -58,6 +61,7 @@ class AlertMixin:
         alert_proto.format = AlertProto.WARNING
         return self.dg._enqueue("alert", alert_proto)
 
+    @track_fingerprint
     def info(self, body: str) -> "DeltaGenerator":
         """Display an informational message.
 
@@ -76,6 +80,7 @@ class AlertMixin:
         alert_proto.format = AlertProto.INFO
         return self.dg._enqueue("alert", alert_proto)
 
+    @track_fingerprint
     def success(self, body: str) -> "DeltaGenerator":
         """Display a success message.
 

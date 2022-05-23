@@ -21,6 +21,7 @@ from dateutil import relativedelta
 from typing_extensions import TypeAlias
 
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.type_util import Key, to_key
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.DateInput_pb2 import DateInput as DateInputProto
@@ -162,6 +163,7 @@ class _DateInputValues:
 
 
 class TimeWidgetsMixin:
+    @track_fingerprint
     def time_input(
         self,
         label: str,
@@ -302,6 +304,7 @@ class TimeWidgetsMixin:
         self.dg._enqueue("time_input", time_input_proto)
         return cast(time, current_value)
 
+    @track_fingerprint
     def date_input(
         self,
         label: str,

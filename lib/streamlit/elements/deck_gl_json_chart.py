@@ -17,9 +17,11 @@ from typing import cast, Any, Dict
 import streamlit
 import json
 from streamlit.proto.DeckGlJsonChart_pb2 import DeckGlJsonChart as PydeckProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 
 class PydeckMixin:
+    @track_fingerprint
     def pydeck_chart(self, pydeck_obj=None, use_container_width=False):
         """Draw a chart using the PyDeck library.
 

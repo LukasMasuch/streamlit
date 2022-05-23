@@ -19,6 +19,7 @@ import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.MultiSelect_pb2 import MultiSelect as MultiSelectProto
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.type_util import Key, OptionSequence, ensure_indexable, is_type, to_key
 
 from streamlit.state import (
@@ -32,6 +33,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class MultiSelectMixin:
+    @track_fingerprint
     def multiselect(
         self,
         label: str,

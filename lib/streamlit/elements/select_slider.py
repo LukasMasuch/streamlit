@@ -19,6 +19,7 @@ import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Slider_pb2 import Slider as SliderProto
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.state import (
     register_widget,
     WidgetArgs,
@@ -32,6 +33,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class SelectSliderMixin:
+    @track_fingerprint
     def select_slider(
         self,
         label: str,

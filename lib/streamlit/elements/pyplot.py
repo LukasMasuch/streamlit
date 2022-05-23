@@ -23,11 +23,13 @@ from streamlit import config
 from streamlit.errors import StreamlitDeprecationWarning
 from streamlit.logger import get_logger
 from streamlit.proto.Image_pb2 import ImageList as ImageListProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 LOGGER = get_logger(__name__)
 
 
 class PyplotMixin:
+    @track_fingerprint
     def pyplot(self, fig=None, clear_figure=None, **kwargs):
         """Display a matplotlib.pyplot figure.
 

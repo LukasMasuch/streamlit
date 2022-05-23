@@ -46,6 +46,7 @@ For more detailed info, see https://docs.streamlit.io.
 from streamlit import logger as _logger
 from streamlit import config as _config
 from streamlit.proto.RootContainer_pb2 import RootContainer
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.secrets import Secrets, SECRETS_FILE_LOC
 
 _LOGGER = _logger.get_logger("root")
@@ -201,9 +202,9 @@ session_state = SessionStateProxy()
 
 # Beta APIs
 
-beta_container = _main.beta_container
-beta_expander = _main.beta_expander
-beta_columns = _main.beta_columns
+beta_container = track_fingerprint(_main.beta_container)
+beta_expander = track_fingerprint(_main.beta_expander)
+beta_columns = track_fingerprint(_main.beta_columns)
 
 
 def set_option(key: str, value: Any) -> None:
@@ -245,6 +246,7 @@ def set_option(key: str, value: Any) -> None:
     )
 
 
+@track_fingerprint
 def experimental_show(*args: Any) -> None:
     """Write arguments and *argument names* to your app for debugging purposes.
 
@@ -325,6 +327,7 @@ def experimental_show(*args: Any) -> None:
         exception(exc)
 
 
+@track_fingerprint
 def experimental_get_query_params() -> Dict[str, List[str]]:
     """Return the query parameters that is currently showing in the browser's URL bar.
 
@@ -355,6 +358,7 @@ def experimental_get_query_params() -> Dict[str, List[str]]:
     return _parse.parse_qs(ctx.query_string)
 
 
+@track_fingerprint
 def experimental_set_query_params(**query_params: Any) -> None:
     """Set the query parameters that are shown in the browser's URL bar.
 
@@ -385,6 +389,7 @@ def experimental_set_query_params(**query_params: Any) -> None:
     ctx.enqueue(msg)
 
 
+@track_fingerprint
 @_contextlib.contextmanager
 def spinner(text: str = "In progress...") -> Iterator[None]:
     """Temporarily displays a message while executing a block of code.
@@ -486,6 +491,7 @@ def _maybe_print_use_warning() -> None:
             )
 
 
+@track_fingerprint
 def stop() -> NoReturn:
     """Stops execution immediately.
 
@@ -506,6 +512,7 @@ def stop() -> NoReturn:
     raise StopException()
 
 
+@track_fingerprint
 def experimental_rerun() -> NoReturn:
     """Rerun the script immediately.
 

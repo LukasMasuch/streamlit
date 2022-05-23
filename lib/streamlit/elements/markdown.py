@@ -16,6 +16,7 @@ from typing import cast, Optional, TYPE_CHECKING, Union
 
 from streamlit import type_util
 from streamlit.proto.Markdown_pb2 import Markdown as MarkdownProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from .utils import clean_text
 
 if TYPE_CHECKING:
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
 
 
 class MarkdownMixin:
+    @track_fingerprint
     def markdown(self, body: str, unsafe_allow_html: bool = False) -> "DeltaGenerator":
         """Display string formatted as Markdown.
 
@@ -78,6 +80,7 @@ class MarkdownMixin:
 
         return self.dg._enqueue("markdown", markdown_proto)
 
+    @track_fingerprint
     def header(self, body: str, anchor: Optional[str] = None) -> "DeltaGenerator":
         """Display text in header formatting.
 
@@ -103,6 +106,7 @@ class MarkdownMixin:
             header_proto.allow_html = True
         return self.dg._enqueue("markdown", header_proto)
 
+    @track_fingerprint
     def subheader(self, body: str, anchor: Optional[str] = None) -> "DeltaGenerator":
         """Display text in subheader formatting.
 
@@ -129,6 +133,7 @@ class MarkdownMixin:
 
         return self.dg._enqueue("markdown", subheader_proto)
 
+    @track_fingerprint
     def code(self, body: str, language: Optional[str] = "python") -> "DeltaGenerator":
         """Display a code block with optional syntax highlighting.
 
@@ -158,6 +163,7 @@ class MarkdownMixin:
         code_proto.body = clean_text(markdown)
         return self.dg._enqueue("markdown", code_proto)
 
+    @track_fingerprint
     def title(self, body: str, anchor: Optional[str] = None) -> "DeltaGenerator":
         """Display text in title formatting.
 
@@ -186,6 +192,7 @@ class MarkdownMixin:
             title_proto.allow_html = True
         return self.dg._enqueue("markdown", title_proto)
 
+    @track_fingerprint
     def caption(self, body: str, unsafe_allow_html: bool = False) -> "DeltaGenerator":
         """Display text in small font.
 
@@ -229,6 +236,7 @@ class MarkdownMixin:
         caption_proto.is_caption = True
         return self.dg._enqueue("markdown", caption_proto)
 
+    @track_fingerprint
     def latex(self, body: Union[str, "sympy.Expr"]) -> "DeltaGenerator":
         # This docstring needs to be "raw" because of the backslashes in the
         # example below.

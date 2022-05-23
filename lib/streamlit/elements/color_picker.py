@@ -14,6 +14,7 @@
 
 import re
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
 from typing import Optional, cast
@@ -32,6 +33,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class ColorPickerMixin:
+    @track_fingerprint
     def color_picker(
         self,
         label: str,

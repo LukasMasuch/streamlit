@@ -17,6 +17,7 @@ from typing import cast, List, Sequence, TYPE_CHECKING, Union
 from streamlit.beta_util import function_beta_warning
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Block_pb2 import Block as BlockProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -25,6 +26,7 @@ SpecType = Union[int, Sequence[Union[int, float]]]
 
 
 class LayoutsMixin:
+    @track_fingerprint
     def container(self) -> "DeltaGenerator":
         """Insert a multi-element container.
 
@@ -69,6 +71,7 @@ class LayoutsMixin:
         return self.dg._block()
 
     # TODO: Enforce that columns are not nested or in Sidebar
+    @track_fingerprint
     def columns(self, spec: SpecType) -> List["DeltaGenerator"]:
         """Insert containers laid out as side-by-side columns.
 
@@ -171,6 +174,7 @@ class LayoutsMixin:
         total_weight = sum(weights)
         return [row._block(column_proto(w / total_weight)) for w in weights]
 
+    @track_fingerprint
     def expander(self, label: str, expanded: bool = False) -> "DeltaGenerator":
         """Insert a multi-element container that can be expanded/collapsed.
 

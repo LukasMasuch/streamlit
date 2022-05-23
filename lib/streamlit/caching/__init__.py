@@ -14,6 +14,8 @@
 import contextlib
 from typing import Iterator
 
+from streamlit.scriptrunner.script_run_context import track_fingerprint
+
 from .memo_decorator import MEMO_CALL_STACK, _memo_caches, MemoAPI
 from .singleton_decorator import SINGLETON_CALL_STACK, _singleton_caches, SingletonAPI
 
@@ -38,5 +40,5 @@ from .singleton_decorator import (
 )
 
 # Create and export public API singletons.
-memo = MemoAPI()
-singleton = SingletonAPI()
+memo = track_fingerprint(MemoAPI())
+singleton = track_fingerprint(SingletonAPI())

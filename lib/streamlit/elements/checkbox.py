@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
 from typing import cast, Optional
@@ -30,6 +31,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class CheckboxMixin:
+    @track_fingerprint
     def checkbox(
         self,
         label: str,

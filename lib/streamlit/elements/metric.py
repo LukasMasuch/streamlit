@@ -19,6 +19,7 @@ from typing_extensions import TypeAlias, Literal
 import attr
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Metric_pb2 import Metric as MetricProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 from .utils import clean_text
 
@@ -40,6 +41,7 @@ class MetricColorAndDirection:
 
 
 class MetricMixin:
+    @track_fingerprint
     def metric(
         self,
         label: str,

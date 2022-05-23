@@ -199,6 +199,7 @@ class TextWidgetsMixin:
         self.dg._enqueue("text_input", text_input_proto)
         return cast(str, current_value)
 
+    @track_fingerprint
     def text_area(
         self,
         label: str,

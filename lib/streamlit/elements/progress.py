@@ -17,6 +17,7 @@ from typing_extensions import TypeAlias
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Progress_pb2 import Progress as ProgressProto
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -28,6 +29,7 @@ FloatOrInt: TypeAlias = Union[int, float]
 
 
 class ProgressMixin:
+    @track_fingerprint
     def progress(self, value: FloatOrInt) -> "DeltaGenerator":
         """Display a progress bar.
 

@@ -23,6 +23,7 @@ from streamlit.proto.Button_pb2 import Button as ButtonProto
 from streamlit.in_memory_file_manager import in_memory_file_manager
 from streamlit.proto.DownloadButton_pb2 import DownloadButton as DownloadButtonProto
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.state import (
     register_widget,
     WidgetArgs,
@@ -45,6 +46,7 @@ DownloadButtonDataType = Union[str, bytes, TextIO, BinaryIO]
 
 
 class ButtonMixin:
+    @track_fingerprint
     def button(
         self,
         label: str,
@@ -112,6 +114,7 @@ class ButtonMixin:
             ctx=ctx,
         )
 
+    @track_fingerprint
     def download_button(
         self,
         label: str,

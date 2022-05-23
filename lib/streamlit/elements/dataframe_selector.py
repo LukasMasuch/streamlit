@@ -19,6 +19,7 @@ from typing import Dict
 from typing import cast, Optional, TYPE_CHECKING
 
 from streamlit import config
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 if TYPE_CHECKING:
     from .arrow import Data
@@ -34,6 +35,7 @@ def _use_arrow() -> bool:
 
 
 class DataFrameSelectorMixin:
+    @track_fingerprint
     def dataframe(
         self,
         data: "Data" = None,
@@ -96,6 +98,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_dataframe(data, width, height)
 
+    @track_fingerprint
     def table(self, data: "Data" = None) -> "DeltaGenerator":
         """Display a static table.
 
@@ -129,6 +132,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_table(data)
 
+    @track_fingerprint
     def line_chart(
         self,
         data: "Data" = None,
@@ -183,6 +187,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_line_chart(data, width, height, use_container_width)
 
+    @track_fingerprint
     def area_chart(
         self,
         data: "Data" = None,
@@ -237,6 +242,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_area_chart(data, width, height, use_container_width)
 
+    @track_fingerprint
     def bar_chart(
         self,
         data: "Data" = None,
@@ -292,6 +298,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_bar_chart(data, width, height, use_container_width)
 
+    @track_fingerprint
     def altair_chart(
         self,
         altair_chart: "Chart",
@@ -338,6 +345,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_altair_chart(altair_chart, use_container_width)
 
+    @track_fingerprint
     def vega_lite_chart(
         self,
         data: "Data" = None,
@@ -407,6 +415,7 @@ class DataFrameSelectorMixin:
                 data, spec, use_container_width, **kwargs
             )
 
+    @track_fingerprint
     def add_rows(self, data: "Data" = None, **kwargs) -> Optional["DeltaGenerator"]:
         """Concatenate a dataframe to the bottom of the current one.
 

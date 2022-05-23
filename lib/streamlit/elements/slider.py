@@ -14,6 +14,7 @@
 
 from datetime import date, time, datetime, timedelta, timezone
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.type_util import Key, to_key
 from typing import Any, List, cast, Optional
 from textwrap import dedent
@@ -34,6 +35,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class SliderMixin:
+    @track_fingerprint
     def slider(
         self,
         label: str,
@@ -274,10 +276,14 @@ class SliderMixin:
             max_value = DEFAULTS[data_type]["max_value"]
         if step is None:
             step = DEFAULTS[data_type]["step"]
-            if data_type in (
-                SliderProto.DATETIME,
-                SliderProto.DATE,
-            ) and max_value - min_value < timedelta(days=1):
+            if (
+                data_type
+                in (
+                    SliderProto.DATETIME,
+                    SliderProto.DATE,
+                )
+                and max_value - min_value < timedelta(days=1)
+            ):
                 step = timedelta(minutes=15)
         if format is None:
             format = DEFAULTS[data_type]["format"]
