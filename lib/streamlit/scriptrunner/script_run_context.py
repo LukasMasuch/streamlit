@@ -18,6 +18,8 @@ from typing_extensions import Final
 from timeit import default_timer as timer
 from typing import Any
 from functools import wraps
+import inspect
+import enum
 
 import attr
 
@@ -26,7 +28,7 @@ from streamlit.logger import get_logger
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.state import SafeSessionState
 from streamlit.uploaded_file_manager import UploadedFileManager
-from streamlit.proto.AppProfile_pb2 import Fingerprint, AppProfile
+from streamlit.proto.AppProfile_pb2 import Fingerprint, Argument
 
 LOGGER: Final = get_logger(__name__)
 
@@ -38,6 +40,19 @@ def get_type_name(obj: Any) -> str:
     return f"{obj_type.__module__}.{obj_type.__qualname__}"
 
 
+def get_arg_metadata(arg: Any) -> Optional[str]:
+    if isinstance(arg, bool):
+        return str(arg)
+
+    if isinstance(arg, enum.Enum):
+        return str(arg)
+
+    if hasattr(arg, "__len__"):
+        return str(len(arg))
+
+    return None
+
+
 def track_fingerprint(f):
     @wraps(f)
     def wrap(*args, **kwargs):
@@ -46,17 +61,37 @@ def track_fingerprint(f):
         result = f(*args, **kwargs)
 
         ctx = get_script_run_ctx()
-        arg_types: List[str] = [
-            f"{i}: {get_type_name(arg)}" for i, arg in enumerate(args[1:])
+
+        arg_keywords = inspect.getfullargspec(f).args
+
+        # print(inspect.signature(f).parameters, arg_keywords, args, f.__qualname__)
+        arguments: List[Argument] = [
+            Argument(
+                keyword=arg_keywords[i + 1] if len(arg_keywords) > i + 1 else f"{i}",
+                type=get_type_name(arg),
+                metadata=get_arg_metadata(arg),
+            )
+            for i, arg in enumerate(args[1:])
         ]
-        arg_types.extend(
-            [f"{kwarg}: {get_type_name(kwargs[kwarg])}" for kwarg in kwargs]
+
+        arguments.extend(
+            [
+                Argument(
+                    keyword=kwarg,
+                    type=get_type_name(kwargs[kwarg]),
+                    metadata=get_arg_metadata(kwargs[kwarg]),
+                )
+                for kwarg in kwargs
+            ]
         )
+
         ctx.add_fingerprint(
-            name=f.__qualname__,
-            arg_types=arg_types,
-            return_type=get_type_name(result),
-            exec_time=float(timer() - exec_start),
+            Fingerprint(
+                name=f.__qualname__,
+                arguments=arguments,
+                return_type=get_type_name(result),
+                exec_time=float(timer() - exec_start),
+            )
         )
         return result
 
@@ -105,17 +140,8 @@ class ScriptRunContext:
     def on_script_start(self) -> None:
         self._has_script_started = True
 
-    def add_fingerprint(
-        self, name: str, arg_types: List[str], return_type: str, exec_time: float
-    ):
-        self._fingerprints.append(
-            Fingerprint(
-                name=name,
-                arg_types=arg_types,
-                return_type=return_type,
-                exec_time=exec_time,
-            )
-        )
+    def add_fingerprint(self, fingerprint: Fingerprint):
+        self._fingerprints.append(fingerprint)
 
     def enqueue(self, msg: ForwardMsg) -> None:
         """Enqueue a ForwardMsg for this context's session."""

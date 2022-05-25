@@ -20,12 +20,18 @@ syntax = "proto3";
 message AppProfile {
   repeated Fingerprint fingerprints = 1;
   float exec_time = 2;
-  // uncought_exeption_type
+  // uncaught_exception
+}
+
+message Argument {
+	string keyword = 1;
+	string type = 2;
+	string metadata = 3;
 }
 
 message Fingerprint {
   string name = 1;
-  repeated string arg_types = 2;
+  repeated Argument arguments = 2;
   string return_type = 3;
   float exec_time = 4;
 }
