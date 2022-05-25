@@ -41,7 +41,9 @@ if TYPE_CHECKING:
 TimeValue: TypeAlias = Union[time, datetime, None]
 SingleDateValue: TypeAlias = Union[date, datetime, None]
 DateValue: TypeAlias = Union[SingleDateValue, Sequence[SingleDateValue]]
-DateWidgetReturn: TypeAlias = Union[date, Tuple[()], Tuple[date], Tuple[date, date]]
+DateWidgetReturn: TypeAlias = Union[
+    date, Tuple[()], Tuple[date], Tuple[date, date], None
+]
 
 
 def _parse_date_value(value: DateValue) -> Tuple[List[date], bool]:
@@ -315,6 +317,7 @@ class TimeWidgetsMixin:
         kwargs: Optional[WidgetKwargs] = None,
         *,  # keyword-only arguments:
         disabled: bool = False,
+        clearable: bool = False,
     ) -> DateWidgetReturn:
         """Display a date input widget.
 
@@ -378,6 +381,7 @@ class TimeWidgetsMixin:
             args=args,
             kwargs=kwargs,
             disabled=disabled,
+            clearable=clearable,
             ctx=ctx,
         )
 
@@ -394,6 +398,7 @@ class TimeWidgetsMixin:
         kwargs: Optional[WidgetKwargs] = None,
         *,  # keyword-only arguments:
         disabled: bool = False,
+        clearable: bool = False,
         ctx: Optional[ScriptRunContext] = None,
     ) -> DateWidgetReturn:
         key = to_key(key)
@@ -405,27 +410,35 @@ class TimeWidgetsMixin:
             min_value=min_value,
             max_value=max_value,
         )
-        del value, min_value, max_value
 
         date_input_proto = DateInputProto()
+
+        if clearable == False or value != None:
+            date_input_proto.default[:] = [
+                date.strftime(v, "%Y/%m/%d") for v in parsed_values.value
+            ]
+
+        # del value, min_value, max_value
+
         date_input_proto.is_range = parsed_values.is_range
         if help is not None:
             date_input_proto.help = dedent(help)
 
         date_input_proto.label = label
-        date_input_proto.default[:] = [
-            date.strftime(v, "%Y/%m/%d") for v in parsed_values.value
-        ]
 
         date_input_proto.min = date.strftime(parsed_values.min, "%Y/%m/%d")
         date_input_proto.max = date.strftime(parsed_values.max, "%Y/%m/%d")
 
         date_input_proto.form_id = current_form_id(self.dg)
+        date_input_proto.clearable = clearable
 
         def deserialize_date_input(
             ui_value: Any,
             widget_id: str = "",
         ) -> DateWidgetReturn:
+            if clearable and value is None and ui_value is None:
+                return None
+
             return_value: Sequence[date]
             if ui_value is not None:
                 return_value = tuple(
@@ -434,11 +447,16 @@ class TimeWidgetsMixin:
             else:
                 return_value = parsed_values.value
 
+            if not return_value:
+                return None
+
             if not parsed_values.is_range:
                 return return_value[0]
             return cast(DateWidgetReturn, tuple(return_value))
 
-        def serialize_date_input(v: DateWidgetReturn) -> List[str]:
+        def serialize_date_input(v: DateWidgetReturn) -> Optional[List[str]]:
+            if v is None:
+                return None
             to_serialize = list(v) if isinstance(v, (list, tuple)) else [v]
             return [date.strftime(v, "%Y/%m/%d") for v in to_serialize]
 

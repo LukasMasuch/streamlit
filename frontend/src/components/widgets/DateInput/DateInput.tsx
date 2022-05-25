@@ -207,6 +207,7 @@ class DateInput extends React.PureComponent<Props, State> {
           disabled={disabled}
           onChange={this.handleChange}
           onClose={this.handleClose}
+          clearable={element.clearable}
           overrides={{
             Popover: {
               props: {

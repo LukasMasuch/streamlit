@@ -131,6 +131,8 @@ class WStates(MutableMapping[str, Any]):
             # trying to access it. Pretend it doesn't exist.
             raise KeyError(k)
         value_type = cast(str, wstate.value.WhichOneof("value"))
+        if value_type is None:
+            return None
         value = wstate.value.__getattribute__(value_type)
 
         # Array types are messages with data in a `data` field
