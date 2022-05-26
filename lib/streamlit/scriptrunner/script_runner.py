@@ -506,6 +506,7 @@ class ScriptRunner:
                     self._session_state.on_script_will_rerun(rerun_data.widget_states)
 
                 ctx.on_script_start()
+                prep_time = timer() - start_time
                 exec(code, module.__dict__)
                 self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = True
         except RerunException as e:
@@ -521,7 +522,7 @@ class ScriptRunner:
         finally:
             if config.get_option("browser.gatherUsageStats"):
                 app_profile_msg = _create_app_profile_message(
-                    ctx._fingerprints, timer() - start_time
+                    ctx._fingerprints, timer() - start_time, prep_time
                 )
                 ctx.enqueue(app_profile_msg)
             self._on_script_finished(ctx)
@@ -585,12 +586,13 @@ class RerunException(ScriptControlException):
 
 
 def _create_app_profile_message(
-    fingerprints: List[Fingerprint], exec_time: float
+    fingerprints: List[Fingerprint], exec_time: float, prep_time: float
 ) -> ForwardMsg:
     """Create and return an AppProfile ForwardMsg."""
     msg = ForwardMsg()
     msg.app_profile.fingerprints.extend(fingerprints)
     msg.app_profile.exec_time = exec_time
+    msg.app_profile.prep_time = prep_time
     return msg
 
 

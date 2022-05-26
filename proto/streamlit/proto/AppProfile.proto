@@ -20,6 +20,7 @@ syntax = "proto3";
 message AppProfile {
   repeated Fingerprint fingerprints = 1;
   float exec_time = 2;
+  float prep_time = 3;
   // uncaught_exception
 }
 
@@ -27,6 +28,7 @@ message Argument {
 	string keyword = 1;
 	string type = 2;
 	string metadata = 3;
+  int32 position = 4;
 }
 
 message Fingerprint {

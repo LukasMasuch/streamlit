@@ -56,22 +56,21 @@ def get_arg_metadata(arg: Any) -> Optional[str]:
 def track_fingerprint(f):
     @wraps(f)
     def wrap(*args, **kwargs):
-
         exec_start = timer()
         result = f(*args, **kwargs)
 
         ctx = get_script_run_ctx()
 
-        arg_keywords = inspect.getfullargspec(f).args
+        arg_keywords = inspect.getfullargspec(f).args[1:]
 
-        # print(inspect.signature(f).parameters, arg_keywords, args, f.__qualname__)
         arguments: List[Argument] = [
             Argument(
-                keyword=arg_keywords[i + 1] if len(arg_keywords) > i + 1 else f"{i}",
+                keyword=arg_keywords[i] if len(arg_keywords) > i + 1 else f"{i}",
                 type=get_type_name(arg),
                 metadata=get_arg_metadata(arg),
+                position=i,
             )
-            for i, arg in enumerate(args[1:])
+            for i, arg in enumerate(args)
         ]
 
         arguments.extend(
@@ -85,9 +84,17 @@ def track_fingerprint(f):
             ]
         )
 
+        name = "unknown"
+        if inspect.isclass(f):
+            name = f.__class__.__name__
+        elif hasattr(f, "__qualname__"):
+            name = f.__qualname__
+        elif hasattr(f, "__name__"):
+            name = f.__name__
+
         ctx.add_fingerprint(
             Fingerprint(
-                name=f.__qualname__,
+                name=name,
                 arguments=arguments,
                 return_type=get_type_name(result),
                 exec_time=float(timer() - exec_start),
