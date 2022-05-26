@@ -70,7 +70,7 @@ def track_fingerprint(f):
                 metadata=get_arg_metadata(arg),
                 position=i,
             )
-            for i, arg in enumerate(args)
+            for i, arg in enumerate(args[1:])
         ]
 
         arguments.extend(
