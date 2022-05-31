@@ -36,6 +36,7 @@ export interface Props {
   options: any[]
   label?: string | null
   help?: string
+  clearable?: boolean
 }
 
 interface State {
@@ -45,7 +46,7 @@ interface State {
    * The value specified by the user via the UI. If the user didn't touch this
    * widget's UI, the default value is used.
    */
-  value: number
+  value?: number
 }
 
 interface SelectOption {
@@ -132,7 +133,7 @@ class Selectbox extends React.PureComponent<Props, State> {
   public render(): React.ReactNode {
     const style = { width: this.props.width }
     const { label, help } = this.props
-    let { disabled, options } = this.props
+    let { disabled, options, clearable } = this.props
 
     let value = [
       {
@@ -170,7 +171,8 @@ class Selectbox extends React.PureComponent<Props, State> {
           )}
         </WidgetLabel>
         <UISelect
-          clearable={false}
+          clearable={clearable === true}
+          escapeClearsValue={clearable === true}
           disabled={disabled}
           labelKey="label"
           onChange={this.onChange}

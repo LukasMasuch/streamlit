@@ -25,7 +25,7 @@ from streamlit.state import (
     WidgetCallback,
     WidgetKwargs,
 )
-from streamlit.type_util import Key, OptionSequence, ensure_indexable, to_key
+from streamlit.type_util import Default, Key, OptionSequence, ensure_indexable, to_key
 from streamlit.util import index_
 from .form import current_form_id
 from .utils import check_callback_rules, check_session_state_rules
@@ -36,7 +36,7 @@ class SelectboxMixin:
         self,
         label: str,
         options: OptionSequence,
-        index: int = 0,
+        index: Optional[int] = 0,
         format_func: Callable[[Any], Any] = str,
         key: Optional[Key] = None,
         help: Optional[str] = None,
@@ -45,6 +45,7 @@ class SelectboxMixin:
         kwargs: Optional[WidgetKwargs] = None,
         *,  # keyword-only arguments:
         disabled: bool = False,
+        clearable: bool = False,
     ) -> Any:
         """Display a select widget.
 
@@ -108,13 +109,14 @@ class SelectboxMixin:
             kwargs=kwargs,
             disabled=disabled,
             ctx=ctx,
+            clearable=clearable,
         )
 
     def _selectbox(
         self,
         label: str,
         options: OptionSequence,
-        index: int = 0,
+        index: Optional[int] = 0,
         format_func: Callable[[Any], Any] = str,
         key: Optional[Key] = None,
         help: Optional[str] = None,
@@ -124,6 +126,7 @@ class SelectboxMixin:
         *,  # keyword-only arguments:
         disabled: bool = False,
         ctx: Optional[ScriptRunContext] = None,
+        clearable: bool = False,
     ) -> Any:
         key = to_key(key)
         check_callback_rules(self.dg, on_change)
@@ -143,11 +146,13 @@ class SelectboxMixin:
 
         selectbox_proto = SelectboxProto()
         selectbox_proto.label = label
-        selectbox_proto.default = index
+        if index is not None:
+            selectbox_proto.default = index
         selectbox_proto.options[:] = [str(format_func(option)) for option in opt]
         selectbox_proto.form_id = current_form_id(self.dg)
         if help is not None:
             selectbox_proto.help = dedent(help)
+        selectbox_proto.clearable = clearable
 
         def deserialize_select_box(ui_value, widget_id=""):
             idx = ui_value if ui_value is not None else index
