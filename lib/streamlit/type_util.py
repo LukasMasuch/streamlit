@@ -39,6 +39,14 @@ if TYPE_CHECKING:
     from pandas.io.formats.style import Styler
     from typing_extensions import TypeGuard
 
+
+class DefaultType:
+    def __repr__(self):
+        return "DEFAULT"
+
+
+Default = DefaultType()
+
 OptionSequence = Union[Sequence[Any], DataFrame, Series, Index, np.ndarray]
 Key = Union[str, int]
 

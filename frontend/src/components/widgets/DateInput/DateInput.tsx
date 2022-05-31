@@ -44,7 +44,7 @@ interface State {
    * An array with start and end date specified by the user via the UI. If the user
    * didn't touch this widget's UI, the default value is used. End date is optional.
    */
-  values: Date[]
+  values?: Date[]
   /**
    * Boolean to toggle between single-date picker and range date picker.
    */
@@ -61,7 +61,11 @@ function stringsToDates(strings: string[]): Date[] {
 }
 
 /** Convert an array of dates to an array of strings. */
-function datesToStrings(dates: Date[]): string[] {
+function datesToStrings(dates?: Date[]): string[] {
+  if (dates === undefined) {
+    return []
+  }
+
   return dates.map((value: Date) => moment(value as Date).format(DATE_FORMAT))
 }
 
@@ -155,23 +159,21 @@ class DateInput extends React.PureComponent<Props, State> {
 
   private handleClose = (): void => {
     const { isEmpty } = this.state
+
     if (isEmpty) {
-      this.setState(
-        { values: stringsToDates(this.props.element.default) },
-        () => {
+      if (this.props.element.clearable) {
+        this.setState({ values: undefined }, () => {
           this.commitWidgetValue({ fromUi: true })
-        }
-      )
+        })
+      } else {
+        this.setState(
+          { values: stringsToDates(this.props.element.default) },
+          () => {
+            this.commitWidgetValue({ fromUi: true })
+          }
+        )
+      }
     }
-  }
-
-  private getMaxDate = (): Date | undefined => {
-    const { element } = this.props
-    const maxDate = element.max
-
-    return maxDate && maxDate.length > 0
-      ? moment(maxDate, DATE_FORMAT).toDate()
-      : undefined
   }
 
   public render(): React.ReactNode {
@@ -180,8 +182,14 @@ class DateInput extends React.PureComponent<Props, State> {
     const { colors, fontSizes } = theme
 
     const style = { width }
-    const minDate = moment(element.min, DATE_FORMAT).toDate()
-    const maxDate = this.getMaxDate()
+    const minDate =
+      element.min && element.min.length > 0
+        ? moment(element.min, DATE_FORMAT).toDate()
+        : undefined
+    const maxDate =
+      element.max && element.max.length > 0
+        ? moment(element.max, DATE_FORMAT).toDate()
+        : undefined
 
     // Manage our form-clear event handler.
     this.formClearHelper.manageFormClearListener(

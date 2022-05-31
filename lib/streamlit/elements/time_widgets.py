@@ -21,7 +21,7 @@ from dateutil import relativedelta
 from typing_extensions import TypeAlias
 
 from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.type_util import Key, to_key
+from streamlit.type_util import Key, to_key, Default, DefaultType
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.DateInput_pb2 import DateInput as DateInputProto
 from streamlit.proto.TimeInput_pb2 import TimeInput as TimeInputProto
@@ -39,17 +39,19 @@ if TYPE_CHECKING:
 
 
 TimeValue: TypeAlias = Union[time, datetime, None]
-SingleDateValue: TypeAlias = Union[date, datetime, None]
+SingleDateValue: TypeAlias = Union[date, datetime, None, DefaultType]
 DateValue: TypeAlias = Union[SingleDateValue, Sequence[SingleDateValue]]
 DateWidgetReturn: TypeAlias = Union[
     date, Tuple[()], Tuple[date], Tuple[date, date], None
 ]
 
 
-def _parse_date_value(value: DateValue) -> Tuple[List[date], bool]:
-    parsed_dates: List[date]
+def _parse_date_value(value: DateValue) -> Tuple[Optional[List[date]], bool]:
+    parsed_dates: Optional[List[date]]
     range_value: bool = False
     if value is None:
+        parsed_dates = None
+    elif value is Default:
         # Set value default.
         parsed_dates = [datetime.now().date()]
     elif isinstance(value, datetime):
@@ -75,7 +77,7 @@ def _parse_date_value(value: DateValue) -> Tuple[List[date], bool]:
 
 def _parse_min_date(
     min_value: SingleDateValue,
-    parsed_dates: Sequence[date],
+    parsed_dates: Optional[Sequence[date]],
 ) -> date:
     parsed_min_date: date
     if isinstance(min_value, datetime):
@@ -96,7 +98,7 @@ def _parse_min_date(
 
 def _parse_max_date(
     max_value: SingleDateValue,
-    parsed_dates: Sequence[date],
+    parsed_dates: Optional[Sequence[date]],
 ) -> date:
     parsed_max_date: date
     if isinstance(max_value, datetime):
@@ -117,7 +119,7 @@ def _parse_max_date(
 
 @attr.s(auto_attribs=True, slots=True, frozen=True)
 class _DateInputValues:
-    value: Sequence[date]
+    value: Optional[Sequence[date]]
     is_range: bool
     max: date
     min: date
@@ -307,7 +309,7 @@ class TimeWidgetsMixin:
     def date_input(
         self,
         label: str,
-        value: DateValue = None,
+        value: DateValue = Default,
         min_value: SingleDateValue = None,
         max_value: SingleDateValue = None,
         key: Optional[Key] = None,
@@ -388,7 +390,7 @@ class TimeWidgetsMixin:
     def _date_input(
         self,
         label: str,
-        value: DateValue = None,
+        value: DateValue = Default,
         min_value: SingleDateValue = None,
         max_value: SingleDateValue = None,
         key: Optional[Key] = None,
@@ -413,7 +415,7 @@ class TimeWidgetsMixin:
 
         date_input_proto = DateInputProto()
 
-        if clearable == False or value != None:
+        if parsed_values.value is not None:
             date_input_proto.default[:] = [
                 date.strftime(v, "%Y/%m/%d") for v in parsed_values.value
             ]
@@ -426,8 +428,11 @@ class TimeWidgetsMixin:
 
         date_input_proto.label = label
 
-        date_input_proto.min = date.strftime(parsed_values.min, "%Y/%m/%d")
-        date_input_proto.max = date.strftime(parsed_values.max, "%Y/%m/%d")
+        if parsed_values.min is not None:
+            date_input_proto.min = date.strftime(parsed_values.min, "%Y/%m/%d")
+
+        if parsed_values.max is not None:
+            date_input_proto.max = date.strftime(parsed_values.max, "%Y/%m/%d")
 
         date_input_proto.form_id = current_form_id(self.dg)
         date_input_proto.clearable = clearable
@@ -436,14 +441,13 @@ class TimeWidgetsMixin:
             ui_value: Any,
             widget_id: str = "",
         ) -> DateWidgetReturn:
-            if clearable and value is None and ui_value is None:
-                return None
-
             return_value: Sequence[date]
             if ui_value is not None:
                 return_value = tuple(
                     datetime.strptime(v, "%Y/%m/%d").date() for v in ui_value
                 )
+            elif parsed_values.value is None:
+                return None
             else:
                 return_value = parsed_values.value
 
@@ -476,7 +480,9 @@ class TimeWidgetsMixin:
         # the following proto fields to affect a widget's ID.
         date_input_proto.disabled = disabled
         if set_frontend_value:
-            date_input_proto.value[:] = serialize_date_input(current_value)
+            serialized_date_value =  serialize_date_input(current_value)
+            if serialized_date_value is not None:
+                date_input_proto.value[:] = serialized_date_value
             date_input_proto.set_value = True
 
         self.dg._enqueue("date_input", date_input_proto)
