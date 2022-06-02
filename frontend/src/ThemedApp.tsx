@@ -14,9 +14,9 @@ import {
   setCachedTheme,
   ThemeConfig,
 } from "src/theme"
-import { zIndices } from "src/theme/primitives"
 
 import AppWithScreencast from "./App"
+import { StyledDataFrameOverlay } from "./styled-components"
 
 function DataGridOverlay(): React.ReactElement {
   // The glide-data-grid requires one root level portal element for rendering the cell overlays:
@@ -96,7 +96,8 @@ const ThemedApp = (): JSX.Element => {
             availableThemes,
           }}
         />
-        <DataGridOverlay />
+        {/* The data grid requires one root level portal element for rendering cell overlays */}
+        <StyledDataFrameOverlay id="portal" />
       </ThemeProvider>
     </BaseProvider>
   )

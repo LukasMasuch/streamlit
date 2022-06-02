@@ -15,28 +15,32 @@
 import inspect
 import json as json
 import types
-from typing import cast, Any, List, Tuple, Type
+from typing import cast, Any, List, Tuple, Type, TYPE_CHECKING
+from typing_extensions import Final
 
 import numpy as np
 
-import streamlit
 from streamlit import type_util
 from streamlit.errors import StreamlitAPIException
 from streamlit.state import SessionStateProxy
+from streamlit.user_info import UserInfoProxy
+
+if TYPE_CHECKING:
+    from streamlit.delta_generator import DeltaGenerator
+
 
 # Special methods:
-
-HELP_TYPES = (
+HELP_TYPES: Final[Tuple[Type[Any], ...]] = (
     types.BuiltinFunctionType,
     types.BuiltinMethodType,
     types.FunctionType,
     types.MethodType,
     types.ModuleType,
-)  # type: Tuple[Type[Any], ...]
+)
 
 
 class WriteMixin:
-    def write(self, *args, **kwargs):
+    def write(self, *args: Any, **kwargs: Any) -> None:
         """Write arguments to the app.
 
         This is the Swiss Army knife of Streamlit commands: it does different
@@ -149,7 +153,7 @@ class WriteMixin:
             height: 300px
 
         """
-        string_buffer = []  # type: List[str]
+        string_buffer: List[str] = []
         unsafe_allow_html = kwargs.get("unsafe_allow_html", False)
 
         # This bans some valid cases like: e = st.empty(); e.write("a", "b").
@@ -211,7 +215,7 @@ class WriteMixin:
                 flush_buffer()
                 dot = vis_utils.model_to_dot(arg)
                 self.dg.graphviz_chart(dot.to_string())
-            elif isinstance(arg, (dict, list, SessionStateProxy)):
+            elif isinstance(arg, (dict, list, SessionStateProxy, UserInfoProxy)):
                 flush_buffer()
                 self.dg.json(arg)
             elif type_util.is_namedtuple(arg):
@@ -234,6 +238,6 @@ class WriteMixin:
         flush_buffer()
 
     @property
-    def dg(self) -> "streamlit.delta_generator.DeltaGenerator":
+    def dg(self) -> "DeltaGenerator":
         """Get our DeltaGenerator."""
-        return cast("streamlit.delta_generator.DeltaGenerator", self)
+        return cast("DeltaGenerator", self)

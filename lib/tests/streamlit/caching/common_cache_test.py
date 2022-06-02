@@ -178,6 +178,8 @@ class CommonCacheTest(DeltaGeneratorTestCase):
                 query_string="",
                 session_state=SessionState(),
                 uploaded_file_mgr=None,
+                page_script_hash="",
+                user_info={"email": "test@test.com"},
             ),
         )
         with patch.object(call_stack, "_show_cached_st_function_warning") as warning:
