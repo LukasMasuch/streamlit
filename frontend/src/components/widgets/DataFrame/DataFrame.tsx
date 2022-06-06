@@ -27,17 +27,22 @@ import {
   GridMouseEventArgs,
 } from "@glideapps/glide-data-grid"
 import { useColumnSort } from "@glideapps/glide-data-grid-source"
+import { useExtraCells } from "@glideapps/glide-data-grid-cells"
 
+import { WidgetStateManager } from "src/lib/WidgetStateManager"
 import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { Quiver } from "src/lib/Quiver"
 import { logError } from "src/lib/log"
+import { notNullOrUndefined } from "src/lib/utils"
+import { Arrow as ArrowProto } from "src/autogen/proto"
 
 import {
   getCellTemplate,
   fillCellTemplate,
   getColumnSortMode,
-  determineColumnType,
   ColumnType,
+  getColumnTypeFromConfig,
+  getColumnTypeFromQuiver,
 } from "./DataFrameCells"
 import ThemedDataFrameContainer from "./DataFrameContainer"
 
@@ -55,64 +60,140 @@ const MIN_TABLE_HEIGHT = 2 * ROW_HEIGHT + 3
  * The GridColumn type extended with a function to get a template of the given type.
  */
 type GridColumnWithCellTemplate = GridColumn & {
-  getTemplate(): GridCell
+  // The type of the column.
   columnType: ColumnType
+  // The index number of the column.
+  columnIndex: number
+  // If `True`, the column is hidden (will not be shown).
+  isHidden: boolean
+  // If `True`, the column is a table index.
+  isIndex: boolean
 }
 
+interface ColumnConfigProps {
+  width?: number
+  title?: string
+  type?: string
+  hide?: boolean
+}
+
+function applyColumnConfig(
+  column: GridColumnWithCellTemplate,
+  columnsConfig: Map<string | number, ColumnConfigProps>
+): GridColumnWithCellTemplate | null {
+  if (!columnsConfig) {
+    // No column config configured
+    return column
+  }
+
+  let columnConfig
+  if (columnsConfig.has(column.columnIndex)) {
+    columnConfig = columnsConfig.get(column.columnIndex)
+  } else if (columnsConfig.has(column.title)) {
+    columnConfig = columnsConfig.get(column.title)
+  }
+
+  if (!columnConfig) {
+    // No column config found for this column
+    return column
+  }
+
+  if (notNullOrUndefined(columnConfig.hide) && columnConfig.hide === true) {
+    // If column is hidden, return null
+    return null
+  }
+
+  return {
+    ...column,
+    // Update title:
+    ...(notNullOrUndefined(columnConfig.title)
+      ? {
+          title: columnConfig.title,
+        }
+      : {}),
+    // Update width:
+    ...(notNullOrUndefined(columnConfig.width)
+      ? {
+          width: Math.max(
+            Math.min(columnConfig.width, MIN_COLUMN_WIDTH),
+            MAX_COLUMN_WIDTH
+          ),
+        }
+      : {}),
+    // Update data type:
+    ...(notNullOrUndefined(columnConfig.type)
+      ? {
+          columnType: getColumnTypeFromConfig(columnConfig.type),
+        }
+      : {}),
+  } as GridColumnWithCellTemplate
+}
 /**
  * Returns a list of glide-data-grid compatible columns based on a Quiver instance.
  */
-export function getColumns(element: Quiver): GridColumnWithCellTemplate[] {
+export function getColumns(
+  data: Quiver,
+  columnsConfig: Map<string, ColumnConfigProps>
+): GridColumnWithCellTemplate[] {
   const columns: GridColumnWithCellTemplate[] = []
 
-  if (element.isEmpty()) {
+  if (data.isEmpty()) {
     // Tables that don't have any columns cause an exception in glide-data-grid.
     // As a workaround, we are adding an empty index column in this case.
     columns.push({
       id: `empty-index`,
       title: "",
       hasMenu: false,
-      getTemplate: () => {
-        return getCellTemplate(ColumnType.Text, true, "faded")
-      },
       columnType: ColumnType.Text,
+      columnIndex: 0,
+      isIndex: true,
     } as GridColumnWithCellTemplate)
     return columns
   }
 
-  const numIndices = element.types?.index?.length ?? 0
-  const numColumns = element.columns?.[0]?.length ?? 0
+  const numIndices = data.types?.index?.length ?? 0
+  const numColumns = data.columns?.[0]?.length ?? 0
 
   for (let i = 0; i < numIndices; i++) {
-    const quiverType = element.types.index[i]
-    const columnType = determineColumnType(quiverType)
-    columns.push({
+    const quiverType = data.types.index[i]
+    const columnType = getColumnTypeFromQuiver(quiverType)
+
+    const column = {
       id: `index-${i}`,
-      // Indices currently have empty titles:
-      title: "",
+      title: "", // Indices have empty titles as default.
       hasMenu: false,
-      getTemplate: () => {
-        return getCellTemplate(columnType, true, "faded")
-      },
       columnType,
-    } as GridColumnWithCellTemplate)
+      columnIndex: i,
+      isIndex: true,
+    } as GridColumnWithCellTemplate
+
+    const updatedColumn = applyColumnConfig(column, columnsConfig)
+    // If column is hidden, the return value is null.
+    if (updatedColumn) {
+      columns.push(updatedColumn)
+    }
   }
 
   for (let i = 0; i < numColumns; i++) {
-    const columnTitle = element.columns[0][i]
+    const columnTitle = data.columns[0][i]
+    const quiverType = data.types.data[i]
+    const columnType = getColumnTypeFromQuiver(quiverType)
 
-    const quiverType = element.types.data[i]
-    const columnType = determineColumnType(quiverType)
-
-    columns.push({
+    const column = {
       id: `column-${columnTitle}-${i}`,
       title: columnTitle,
       hasMenu: false,
-      getTemplate: () => {
-        return getCellTemplate(columnType, true)
-      },
       columnType,
-    } as GridColumnWithCellTemplate)
+      columnIndex: i + numIndices,
+      isHidden: false,
+      isIndex: false,
+    } as GridColumnWithCellTemplate
+
+    const updatedColumn = applyColumnConfig(column, columnsConfig)
+    // If column is hidden, the return value is null.
+    if (updatedColumn) {
+      columns.push(updatedColumn)
+    }
   }
   return columns
 }
@@ -163,7 +244,8 @@ type DataLoaderReturn = { numRows: number; numIndices: number } & Pick<
  * such as column resizing, sorting, etc.
  */
 export function useDataLoader(
-  element: Quiver,
+  element: ArrowProto,
+  data: Quiver,
   sort?: ColumnSortConfig | undefined
 ): DataLoaderReturn {
   // The columns with the corresponding empty template for every type:
@@ -172,7 +254,11 @@ export function useDataLoader(
     () => new Map()
   )
 
-  const columns = getColumns(element).map(column => {
+  const columnsConfig = element.columns
+    ? new Map(Object.entries(JSON.parse(element.columns)))
+    : new Map()
+
+  const columns = getColumns(data, columnsConfig).map(column => {
     // Apply column widths from state
     if (column.id && columnSizes.has(column.id)) {
       return {
@@ -184,8 +270,8 @@ export function useDataLoader(
   })
 
   // Number of rows of the table minus 1 for the header row:
-  const numRows = element.isEmpty() ? 1 : element.dimensions.rows - 1
-  const numIndices = element.types?.index?.length ?? 0
+  const numRows = data.isEmpty() ? 1 : data.dimensions.rows - 1
+  const numIndices = data.types?.index?.length ?? 0
 
   const onColumnResize = React.useCallback(
     (column: GridColumn, newSize: number) => {
@@ -198,34 +284,41 @@ export function useDataLoader(
 
   const getCellContent = React.useCallback(
     ([col, row]: readonly [number, number]): GridCell => {
-      if (element.isEmpty()) {
+      if (data.isEmpty()) {
         return {
-          ...getCellTemplate(ColumnType.Text, true, "faded"),
+          ...getCellTemplate(ColumnType.Text, true, true),
           displayData: "empty",
         } as GridCell
       }
 
       if (col > columns.length - 1) {
         // This should never happen
-        return getCellTemplate(ColumnType.Text, true)
+        return getCellTemplate(ColumnType.Text, true, false)
       }
 
-      const cellTemplate = columns[col].getTemplate()
+      const column = columns[col]
+      const cellTemplate = getCellTemplate(
+        column.columnType,
+        true,
+        column.isIndex
+      )
+
       if (row > numRows - 1) {
         // This should never happen
         return cellTemplate
       }
+
       try {
         // Quiver has the header in first row
-        const quiverCell = element.getCell(row + 1, col)
-        return fillCellTemplate(cellTemplate, quiverCell, element.cssStyles)
+        const quiverCell = data.getCell(row + 1, column.columnIndex)
+        return fillCellTemplate(cellTemplate, quiverCell, data.cssStyles)
       } catch (error) {
         // This should not happen in read-only table.
         logError(error)
         return cellTemplate
       }
     },
-    [columns, numRows, element]
+    [columns, numRows, data]
   )
 
   const { getCellContent: getCellContentSorted } = useColumnSort({
@@ -246,16 +339,22 @@ export function useDataLoader(
   }
 }
 export interface DataFrameProps {
-  element: Quiver
+  element: ArrowProto
+  data: Quiver
+  widgetMgr: WidgetStateManager
+  disabled: boolean
   height?: number
   width: number
 }
 
 function DataFrame({
   element,
+  data,
   height: propHeight,
   width: propWidth,
 }: DataFrameProps): ReactElement {
+  const extraCellArgs = useExtraCells()
+
   const [sort, setSort] = React.useState<ColumnSortConfig>()
 
   const {
@@ -264,7 +363,7 @@ function DataFrame({
     columns,
     getCellContent,
     onColumnResize,
-  } = useDataLoader(element, sort)
+  } = useDataLoader(element, data, sort)
 
   const [isFocused, setIsFocused] = React.useState<boolean>(true)
 
@@ -377,6 +476,9 @@ function DataFrame({
           // We use an overlay scrollbar, so no need to have space for reserved for the scrollbar:
           scrollbarWidthOverride: 1,
         }}
+        // Add support for additional cells:
+        provideEditor={extraCellArgs.provideEditor}
+        drawCell={extraCellArgs.drawCell}
       />
     </ThemedDataFrameContainer>
   )

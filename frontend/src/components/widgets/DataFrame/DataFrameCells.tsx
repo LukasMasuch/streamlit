@@ -23,35 +23,74 @@ import {
   BooleanCell,
   NumberCell,
   BubbleCell,
+  UriCell,
+  ImageCell,
+  LoadingCell,
+  CustomCell,
 } from "@glideapps/glide-data-grid"
 
 import { DataFrameCell, Quiver, Type as QuiverType } from "src/lib/Quiver"
 import { notNullOrUndefined } from "src/lib/utils"
+import { Vector } from "apache-arrow"
 
 export enum ColumnType {
   Text = "text",
   Number = "number",
   Boolean = "boolean",
   List = "list",
+  Url = "url",
+  Image = "image",
+  BarChart = "bar-chart",
+  LineChart = "line-chart",
+  ProgressChart = "progress-chart",
+}
+
+/**
+ * Maps the data type from column config to a valid column type.
+ */
+export function getColumnTypeFromConfig(typeName?: string): ColumnType {
+  if (!typeName) {
+    // Use text column as fallback
+    return ColumnType.Text
+  }
+
+  typeName = typeName.toLowerCase().trim()
+
+  // Match with types from enum
+  if (Object.values(ColumnType).some((type: string) => type === typeName)) {
+    return typeName as ColumnType
+  }
+
+  return ColumnType.Text
 }
 
 /**
  * Maps the data type from Quiver to a valid column type.
  */
-export function determineColumnType(quiverType: QuiverType): ColumnType {
-  const dataTypeName = quiverType && Quiver.getTypeName(quiverType)
+export function getColumnTypeFromQuiver(quiverType: QuiverType): ColumnType {
+  let typeName = Quiver.getTypeName(quiverType)
 
   let columnType = ColumnType.Text
 
-  if (!dataTypeName) {
+  if (!typeName) {
     // Use text column as fallback
+    return ColumnType.Text
+  }
+
+  typeName = typeName.toLowerCase().trim()
+
+  // Match based on quiver types
+  if (["unicode"].includes(typeName)) {
     columnType = ColumnType.Text
-  } else if (dataTypeName === "bool") {
+  } else if (["date", "datetime", "datetimetz"].includes(typeName)) {
+    // TODO(lukasmasuch): Support column types
+    columnType = ColumnType.Text
+  } else if (typeName === "bool") {
     columnType = ColumnType.Boolean
-  } else if (["int64", "float64", "range"].includes(dataTypeName)) {
+  } else if (["int64", "float64", "range"].includes(typeName)) {
     // The default index in pandas uses a range type.
     columnType = ColumnType.Number
-  } else if (dataTypeName.startsWith("list")) {
+  } else if (typeName.startsWith("list")) {
     columnType = ColumnType.List
   }
 
@@ -103,15 +142,17 @@ export function extractCssProperty(
  *
  * @param type: The type of the column.
  * @param readonly: If true, returns a read-only version of the cell template.
- * @param style: The style used for the column.
+ * @param isIndex: Indicates if this is an index column.
  *
  * @return a GridCell object that can be used by glide-data-grid.
  */
 export function getCellTemplate(
   type: ColumnType,
   readonly: boolean,
-  style: "normal" | "faded" = "normal"
+  isIndex: boolean
 ): GridCell {
+  const style = isIndex ? "faded" : "normal"
+
   if (type === ColumnType.Text) {
     return {
       kind: GridCellKind.Text,
@@ -154,6 +195,73 @@ export function getCellTemplate(
     } as BubbleCell
   }
 
+  if (type === ColumnType.Url) {
+    return {
+      kind: GridCellKind.Uri,
+      data: "",
+      readonly,
+      allowOverlay: true,
+      style,
+    } as UriCell
+  }
+
+  if (type === ColumnType.Image) {
+    return {
+      kind: GridCellKind.Image,
+      data: [],
+      displayData: [],
+      allowAdd: !readonly,
+      allowOverlay: true,
+      style,
+    } as ImageCell
+  }
+
+  if (type === ColumnType.LineChart) {
+    return {
+      kind: GridCellKind.Custom,
+      allowOverlay: false,
+      copyData: "[]",
+      data: {
+        kind: "sparkline-cell",
+        values: [],
+        displayValues: [],
+        graphKind: "line",
+        yAxis: [0, 1],
+      },
+    } as CustomCell
+  }
+
+  if (type === ColumnType.BarChart) {
+    return {
+      kind: GridCellKind.Custom,
+      allowOverlay: false,
+      copyData: "[]",
+      data: {
+        kind: "sparkline-cell",
+        values: [],
+        graphKind: "bar",
+        yAxis: [0, 1],
+      },
+    } as CustomCell
+  }
+
+  if (type === ColumnType.ProgressChart) {
+    return {
+      kind: GridCellKind.Custom,
+      allowOverlay: false,
+      copyData: "",
+      data: {
+        kind: "range-cell",
+        min: 0,
+        max: 1,
+        value: 0,
+        step: 0.1,
+        label: `0%`,
+        measureLabel: "100%",
+      },
+    } as CustomCell
+  }
+
   throw new Error(`Unsupported cell type: ${type}`)
 }
 
@@ -161,12 +269,33 @@ export function getCellTemplate(
  * Returns the sort mode based on the given column type.
  */
 export function getColumnSortMode(columnType: ColumnType): string {
-  if (columnType === ColumnType.Number) {
+  if (
+    columnType === ColumnType.Number ||
+    columnType === ColumnType.ProgressChart
+  ) {
     // Smart mode also works correctly for numbers
     return "smart"
   }
 
   return "default"
+}
+
+function getEmptyCell(): LoadingCell {
+  return {
+    kind: GridCellKind.Loading,
+    allowOverlay: false,
+  } as LoadingCell
+}
+
+function getErrorCell(errorMsg: string, errorDetails: string = ""): TextCell {
+  return {
+    ...getCellTemplate(ColumnType.Text, true, false),
+    data: errorMsg + (errorDetails ? `\n${errorDetails}` : ""),
+    displayData: errorMsg,
+    themeOverride: {
+      textDark: "#ff4b4b", // TOOD(lukasmasuch): use color from theme
+    },
+  } as TextCell
 }
 
 /**
@@ -185,7 +314,7 @@ export function fillCellTemplate(
   quiverCell: DataFrameCell,
   cssStyles: string | undefined = undefined
 ): GridCell {
-  let cellKind = cellTemplate.kind
+  let cellKind: GridCellKind | string = cellTemplate.kind
   if (cellTemplate.kind === GridCellKind.Custom) {
     cellKind = (cellTemplate.data as any)?.kind
 
@@ -195,84 +324,300 @@ export function fillCellTemplate(
   }
 
   if (cssStyles && quiverCell.cssId) {
-    const themeOverride = {} as Partial<GlideTheme>
-
-    // Extract and apply the font color
-    const fontColor = extractCssProperty(quiverCell.cssId, "color", cssStyles)
-    if (fontColor) {
-      themeOverride.textDark = fontColor
-    }
-
-    // Extract and apply the background color
-    const backgroundColor = extractCssProperty(
+    cellTemplate = applyPandasStylerCss(
+      cellTemplate,
       quiverCell.cssId,
-      "background-color",
       cssStyles
     )
-    if (backgroundColor) {
-      themeOverride.bgCell = backgroundColor
-    }
-
-    if (themeOverride) {
-      // Apply the background and font color in the theme override
-      cellTemplate = {
-        ...cellTemplate,
-        themeOverride,
-      }
-    }
   }
 
   if (cellKind === GridCellKind.Text) {
-    const formattedContents = getDisplayContent(quiverCell)
-    return {
-      ...cellTemplate,
-      data:
-        typeof quiverCell.content === "string" ||
-        !notNullOrUndefined(quiverCell.content) // don't use formattedContents for null/undefined
-          ? quiverCell.content
-          : formattedContents,
-      displayData: formattedContents,
-    } as TextCell
+    return fillTextCell(cellTemplate, quiverCell)
   }
 
   if (cellKind === GridCellKind.Number) {
-    const formattedContents = getDisplayContent(quiverCell)
-    let cellData = quiverCell.content
-
-    if (cellData instanceof Int32Array) {
-      // int values need to be extracted this way:
-      // eslint-disable-next-line prefer-destructuring
-      cellData = (cellData as Int32Array)[0]
-    }
-
-    return {
-      ...cellTemplate,
-      data: notNullOrUndefined(cellData) ? Number(cellData) : undefined,
-      displayData: formattedContents,
-    } as NumberCell
+    return fillNumberCell(cellTemplate, quiverCell)
   }
 
   if (cellKind === GridCellKind.Boolean) {
-    return {
-      ...cellTemplate,
-      data: quiverCell.content as boolean,
-    } as BooleanCell
+    return fillBooleanCell(cellTemplate, quiverCell)
   }
 
   if (cellKind === GridCellKind.Bubble) {
-    // TODO(lukasmasuch): we use JSON.parse(JSON.stringify) here to handle type conversations to base types.
-    // This could be improved by introducing some custom code for handling type conversations.
-    return {
-      ...cellTemplate,
-      data: notNullOrUndefined(quiverCell.content)
-        ? JSON.parse(
-            JSON.stringify(quiverCell.content, (_key, value) =>
-              typeof value === "bigint" ? Number(value) : value
-            )
-          )
-        : [],
-    } as BubbleCell
+    return fillListCell(cellTemplate, quiverCell)
   }
 
-  throw new Error(`Unsupported cell kind: ${cellKind}`)
+  if (cellKind === GridCellKind.Image) {
+    return fillImageCell(cellTemplate, quiverCell)
+  }
+
+  if (cellKind === GridCellKind.Uri) {
+    return fillUriCell(cellTemplate, quiverCell)
+  }
+
+  if (cellKind === "sparkline-cell") {
+    return fillChartCell(cellTemplate, quiverCell)
+  }
+
+  if (cellKind === "range-cell") {
+    return fillProgressCell(cellTemplate, quiverCell)
+  }
+
+  return getErrorCell(`Unsupported cell kind: ${cellKind}`)
+}
+
+export function applyPandasStylerCss(
+  cell: GridCell,
+  cssId: string,
+  cssStyles: string
+): GridCell {
+  const themeOverride = {} as Partial<GlideTheme>
+
+  // Extract and apply the font color
+  const fontColor = extractCssProperty(cssId, "color", cssStyles)
+  if (fontColor) {
+    themeOverride.textDark = fontColor
+  }
+
+  // Extract and apply the background color
+  const backgroundColor = extractCssProperty(
+    cssId,
+    "background-color",
+    cssStyles
+  )
+  if (backgroundColor) {
+    themeOverride.bgCell = backgroundColor
+  }
+
+  if (themeOverride) {
+    // Apply the background and font color in the theme override
+    return {
+      ...cell,
+      themeOverride,
+    }
+  } else {
+    return cell
+  }
+}
+
+export function fillListCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  let cellData = []
+
+  if (notNullOrUndefined(quiverCell.content)) {
+    // if (quiverCell.content instanceof BigInt64Array) {
+    //   // TODO: Fix big int arry
+    //   console.log(quiverCell.content)
+    //   cellData = Array.from(quiverCell.content)
+    // } else if (Array.isArray(quiverCell.content)) {
+    //   cellData = quiverCell.content
+    // } else if (quiverCell.content instanceof Vector) {
+    //   cellData = quiverCell.content.toArray()
+    // }
+    cellData = JSON.parse(
+      JSON.stringify(quiverCell.content, (_key, value) =>
+        typeof value === "bigint" ? Number(value) : value
+      )
+    )
+    if (!Array.isArray(cellData)) {
+      // Transform into list
+      cellData = [String(cellData)]
+      // TODO: Or return error?
+      // return getErrorCell(
+      //   `Incompatible list value: ${quiverCell.content}`,
+      //   "The provided value is not an array."
+      // )
+    }
+  }
+
+  return {
+    ...cellTemplate,
+    data: cellData,
+  } as BubbleCell
+}
+
+export function fillUriCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  return {
+    ...cellTemplate,
+    data: notNullOrUndefined(quiverCell.content)
+      ? String(quiverCell.content)
+      : "",
+  } as UriCell
+}
+
+export function fillTextCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  const formattedContents = getDisplayContent(quiverCell)
+  return {
+    ...cellTemplate,
+    data:
+      typeof quiverCell.content === "string" ||
+      !notNullOrUndefined(quiverCell.content) // don't use formattedContents for null/undefined
+        ? quiverCell.content
+        : formattedContents,
+    displayData: formattedContents,
+  } as TextCell
+}
+
+export function fillBooleanCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  if (
+    notNullOrUndefined(quiverCell.content) &&
+    typeof quiverCell.content !== "boolean"
+  ) {
+    return getErrorCell(`Incompatible boolean value: ${quiverCell.content}`)
+  }
+
+  return {
+    ...cellTemplate,
+    data: quiverCell.content as boolean,
+  } as BooleanCell
+}
+
+export function fillNumberCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  let cellData = undefined
+
+  if (notNullOrUndefined(quiverCell.content)) {
+    if (quiverCell.content instanceof Int32Array) {
+      // int values need to be extracted this way:
+      // eslint-disable-next-line prefer-destructuring
+      cellData = Number(quiverCell.content[0])
+    } else {
+      cellData = Number(quiverCell.content)
+    }
+
+    if (isNaN(cellData)) {
+      return getErrorCell(`Incompatible number value: ${quiverCell.content}`)
+    }
+  }
+
+  const formattedContents = getDisplayContent(quiverCell)
+
+  return {
+    ...cellTemplate,
+    data: cellData,
+    displayData: formattedContents,
+  } as NumberCell
+}
+
+export function fillImageCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  const imageUrls = notNullOrUndefined(quiverCell.content)
+    ? [String(quiverCell.content)]
+    : []
+
+  return {
+    ...cellTemplate,
+    data: imageUrls,
+    displayData: imageUrls,
+  } as ImageCell
+}
+
+export function fillChartCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  if (!notNullOrUndefined(quiverCell.content)) {
+    return getEmptyCell()
+  }
+
+  let chartData
+  if (Array.isArray(quiverCell.content)) {
+    chartData = quiverCell.content
+  } else if (quiverCell.content instanceof Vector) {
+    chartData = quiverCell.content.toArray()
+  } else {
+    return getErrorCell(
+      `Incompatible chart value: ${quiverCell.content}`,
+      "The provided value is not an array."
+    )
+  }
+
+  const convertedChartData: number[] = []
+  let normalizedChartData: number[] = []
+
+  if (chartData.length >= 1) {
+    let maxValue: number = Number(chartData[0])
+    let minValue: number = Number(chartData[0])
+    for (let i in chartData) {
+      const convertedValue = Number(chartData[i])
+      if (convertedValue > maxValue) {
+        maxValue = convertedValue
+      }
+
+      if (convertedValue < minValue) {
+        minValue = convertedValue
+      }
+
+      if (isNaN(convertedValue)) {
+        return getErrorCell(
+          `Incompatible chart value: ${quiverCell.content}`,
+          "All values in the array should be numbers."
+        )
+      }
+      convertedChartData.push(convertedValue)
+    }
+
+    if (maxValue > 1 || minValue < 0) {
+      // Normalize values
+      normalizedChartData = convertedChartData.map(
+        v => (v - minValue) / (maxValue - minValue)
+      )
+    } else {
+      // Values are already in range 0-1
+      normalizedChartData = convertedChartData
+    }
+  }
+
+  return {
+    ...cellTemplate,
+    copyData: JSON.stringify(convertedChartData),
+    data: {
+      ...(cellTemplate as CustomCell)?.data,
+      values: normalizedChartData,
+      displayValues: convertedChartData,
+    },
+  } as CustomCell
+}
+
+export function fillProgressCell(
+  cellTemplate: GridCell,
+  quiverCell: DataFrameCell
+): GridCell {
+  if (!notNullOrUndefined(quiverCell.content)) {
+    return getEmptyCell()
+  }
+
+  let cellData = Number(quiverCell.content)
+
+  if (isNaN(cellData) || cellData < 0 || cellData > 1) {
+    return getErrorCell(
+      `Incompatible progress value: ${quiverCell.content}`,
+      "The value has to be between 0 and 1."
+    )
+  }
+
+  return {
+    ...cellTemplate,
+    copyData: String(quiverCell.content),
+    data: {
+      ...(cellTemplate as CustomCell)?.data,
+      value: cellData,
+      label: `${Math.round(cellData * 100).toString()}%`,
+    },
+  } as CustomCell
 }

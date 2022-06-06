@@ -298,9 +298,6 @@ export class Quiver {
   /** Types for DataFrame's index and data. */
   private _types: Types
 
-  /** Temp: the original widget element. */
-  public _widget: IArrow
-
   /** [optional] DataFrame's Styler data. This will be defined if the user styled the dataframe. */
   private readonly _styler?: Styler
 
@@ -324,9 +321,6 @@ export class Quiver {
     this._data = data
     this._types = types
     this._styler = styler
-
-    // temp
-    this._widget = element
   }
 
   /** Parse Arrow table's schema from a JSON string to an object. */
@@ -781,11 +775,6 @@ but was expecting \`${JSON.stringify(expectedIndexTypes)}\`.
   /** Types for DataFrame's index and data. */
   public get types(): Types {
     return this._types
-  }
-
-  /** Temp: Widget of Quiver element. */
-  public get widget(): IArrow {
-    return this._widget
   }
 
   /**
