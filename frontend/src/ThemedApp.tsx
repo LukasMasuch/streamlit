@@ -18,25 +18,6 @@ import {
 import AppWithScreencast from "./App"
 import { StyledDataFrameOverlay } from "./styled-components"
 
-function DataGridOverlay(): React.ReactElement {
-  // The glide-data-grid requires one root level portal element for rendering the cell overlays:
-  // https://github.com/glideapps/glide-data-grid/blob/main/packages/core/API.md#htmlcss-prerequisites
-  // This is added to the body in ThemedApp
-
-  return (
-    <div
-      id="portal"
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        zIndex: zIndices.tablePortal,
-        lineHeight: "100%",
-      }}
-    />
-  )
-}
-
 const ThemedApp = (): JSX.Element => {
   const defaultTheme = getDefaultTheme()
 
