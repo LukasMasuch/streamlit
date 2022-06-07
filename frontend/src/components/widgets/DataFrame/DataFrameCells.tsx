@@ -153,116 +153,101 @@ export function getCellTemplate(
 ): GridCell {
   const style = isIndex ? "faded" : "normal"
 
-  if (type === ColumnType.Text) {
-    return {
-      kind: GridCellKind.Text,
-      data: "",
-      displayData: "",
-      allowOverlay: true,
-      readonly,
-      style,
-    } as TextCell
+  switch (type) {
+    case ColumnType.Text:
+      return {
+        kind: GridCellKind.Text,
+        data: "",
+        displayData: "",
+        allowOverlay: true,
+        readonly,
+        style,
+      } as TextCell
+    case ColumnType.Boolean:
+      return {
+        kind: GridCellKind.Boolean,
+        data: false,
+        readonly,
+        allowOverlay: false, // no overlay possible
+        style,
+      } as BooleanCell
+    case ColumnType.Number:
+      return {
+        kind: GridCellKind.Number,
+        data: undefined,
+        displayData: "",
+        readonly,
+        allowOverlay: true,
+        contentAlign: "right",
+        style,
+      } as NumberCell
+    case ColumnType.List:
+      return {
+        kind: GridCellKind.Bubble,
+        data: [],
+        allowOverlay: true,
+        style,
+      } as BubbleCell
+    case ColumnType.Url:
+      return {
+        kind: GridCellKind.Uri,
+        data: "",
+        readonly,
+        allowOverlay: true,
+        style,
+      } as UriCell
+    case ColumnType.Image:
+      return {
+        kind: GridCellKind.Image,
+        data: [],
+        displayData: [],
+        allowAdd: !readonly,
+        allowOverlay: true,
+        style,
+      } as ImageCell
+    case ColumnType.LineChart:
+      return {
+        kind: GridCellKind.Custom,
+        allowOverlay: false,
+        copyData: "[]",
+        data: {
+          kind: "sparkline-cell",
+          values: [],
+          displayValues: [],
+          graphKind: "line",
+          yAxis: [0, 1],
+        },
+      } as CustomCell
+    case ColumnType.BarChart:
+      return {
+        kind: GridCellKind.Custom,
+        allowOverlay: false,
+        copyData: "[]",
+        data: {
+          kind: "sparkline-cell",
+          values: [],
+          graphKind: "bar",
+          yAxis: [0, 1],
+        },
+      } as CustomCell
+    case ColumnType.ProgressChart:
+      return {
+        kind: GridCellKind.Custom,
+        allowOverlay: false,
+        copyData: "",
+        data: {
+          kind: "range-cell",
+          min: 0,
+          max: 1,
+          value: 0,
+          step: 0.1,
+          label: `0%`,
+          measureLabel: "100%",
+        },
+      } as CustomCell
+    default:
+      throw new Error(`Unsupported cell type: ${type}`)
   }
-
-  if (type === ColumnType.Boolean) {
-    return {
-      kind: GridCellKind.Boolean,
-      data: false,
-      readonly,
-      allowOverlay: false, // no overlay possible
-      style,
-    } as BooleanCell
-  }
-
-  if (type === ColumnType.Number) {
-    return {
-      kind: GridCellKind.Number,
-      data: undefined,
-      displayData: "",
-      readonly,
-      allowOverlay: true,
-      contentAlign: "right",
-      style,
-    } as NumberCell
-  }
-
-  if (type === ColumnType.List) {
-    return {
-      kind: GridCellKind.Bubble,
-      data: [],
-      allowOverlay: true,
-      style,
-    } as BubbleCell
-  }
-
-  if (type === ColumnType.Url) {
-    return {
-      kind: GridCellKind.Uri,
-      data: "",
-      readonly,
-      allowOverlay: true,
-      style,
-    } as UriCell
-  }
-
-  if (type === ColumnType.Image) {
-    return {
-      kind: GridCellKind.Image,
-      data: [],
-      displayData: [],
-      allowAdd: !readonly,
-      allowOverlay: true,
-      style,
-    } as ImageCell
-  }
-
-  if (type === ColumnType.LineChart) {
-    return {
-      kind: GridCellKind.Custom,
-      allowOverlay: false,
-      copyData: "[]",
-      data: {
-        kind: "sparkline-cell",
-        values: [],
-        displayValues: [],
-        graphKind: "line",
-        yAxis: [0, 1],
-      },
-    } as CustomCell
-  }
-
-  if (type === ColumnType.BarChart) {
-    return {
-      kind: GridCellKind.Custom,
-      allowOverlay: false,
-      copyData: "[]",
-      data: {
-        kind: "sparkline-cell",
-        values: [],
-        graphKind: "bar",
-        yAxis: [0, 1],
-      },
-    } as CustomCell
-  }
-
-  if (type === ColumnType.ProgressChart) {
-    return {
-      kind: GridCellKind.Custom,
-      allowOverlay: false,
-      copyData: "",
-      data: {
-        kind: "range-cell",
-        min: 0,
-        max: 1,
-        value: 0,
-        step: 0.1,
-        label: `0%`,
-        measureLabel: "100%",
-      },
-    } as CustomCell
-  }
-
-  throw new Error(`Unsupported cell type: ${type}`)
 }
 
 /**
@@ -287,7 +272,7 @@ function getEmptyCell(): LoadingCell {
   } as LoadingCell
 }
 
-function getErrorCell(errorMsg: string, errorDetails: string = ""): TextCell {
+function getErrorCell(errorMsg: string, errorDetails = ""): TextCell {
   return {
     ...getCellTemplate(ColumnType.Text, true, false),
     data: errorMsg + (errorDetails ? `\n${errorDetails}` : ""),
@@ -331,39 +316,26 @@ export function fillCellTemplate(
     )
   }
 
-  if (cellKind === GridCellKind.Text) {
-    return fillTextCell(cellTemplate, quiverCell)
+  switch (cellKind) {
+    case GridCellKind.Text:
+      return fillTextCell(cellTemplate, quiverCell)
+    case GridCellKind.Number:
+      return fillNumberCell(cellTemplate, quiverCell)
+    case GridCellKind.Boolean:
+      return fillBooleanCell(cellTemplate, quiverCell)
+    case GridCellKind.Bubble:
+      return fillListCell(cellTemplate, quiverCell)
+    case GridCellKind.Uri:
+      return fillUriCell(cellTemplate, quiverCell)
+    case GridCellKind.Image:
+      return fillImageCell(cellTemplate, quiverCell)
+    case "sparkline-cell":
+      return fillChartCell(cellTemplate, quiverCell)
+    case "range-cell":
+      return fillProgressCell(cellTemplate, quiverCell)
+    default:
+      return getErrorCell(`Unsupported cell kind: ${cellKind}`)
   }
-
-  if (cellKind === GridCellKind.Number) {
-    return fillNumberCell(cellTemplate, quiverCell)
-  }
-
-  if (cellKind === GridCellKind.Boolean) {
-    return fillBooleanCell(cellTemplate, quiverCell)
-  }
-
-  if (cellKind === GridCellKind.Bubble) {
-    return fillListCell(cellTemplate, quiverCell)
-  }
-
-  if (cellKind === GridCellKind.Image) {
-    return fillImageCell(cellTemplate, quiverCell)
-  }
-
-  if (cellKind === GridCellKind.Uri) {
-    return fillUriCell(cellTemplate, quiverCell)
-  }
-
-  if (cellKind === "sparkline-cell") {
-    return fillChartCell(cellTemplate, quiverCell)
-  }
-
-  if (cellKind === "range-cell") {
-    return fillProgressCell(cellTemplate, quiverCell)
-  }
-
-  return getErrorCell(`Unsupported cell kind: ${cellKind}`)
 }
 
 export function applyPandasStylerCss(
@@ -395,9 +367,8 @@ export function applyPandasStylerCss(
       ...cell,
       themeOverride,
     }
-  } else {
-    return cell
   }
+  return cell
 }
 
 export function fillListCell(
@@ -407,15 +378,6 @@ export function fillListCell(
   let cellData = []
 
   if (notNullOrUndefined(quiverCell.content)) {
-    // if (quiverCell.content instanceof BigInt64Array) {
-    //   // TODO: Fix big int arry
-    //   console.log(quiverCell.content)
-    //   cellData = Array.from(quiverCell.content)
-    // } else if (Array.isArray(quiverCell.content)) {
-    //   cellData = quiverCell.content
-    // } else if (quiverCell.content instanceof Vector) {
-    //   cellData = quiverCell.content.toArray()
-    // }
     cellData = JSON.parse(
       JSON.stringify(quiverCell.content, (_key, value) =>
         typeof value === "bigint" ? Number(value) : value
@@ -487,7 +449,7 @@ export function fillNumberCell(
   cellTemplate: GridCell,
   quiverCell: DataFrameCell
 ): GridCell {
-  let cellData = undefined
+  let cellData
 
   if (notNullOrUndefined(quiverCell.content)) {
     if (quiverCell.content instanceof Int32Array) {
@@ -498,7 +460,7 @@ export function fillNumberCell(
       cellData = Number(quiverCell.content)
     }
 
-    if (isNaN(cellData)) {
+    if (Number.isNaN(cellData)) {
       return getErrorCell(`Incompatible number value: ${quiverCell.content}`)
     }
   }
@@ -551,10 +513,10 @@ export function fillChartCell(
   let normalizedChartData: number[] = []
 
   if (chartData.length >= 1) {
-    let maxValue: number = Number(chartData[0])
-    let minValue: number = Number(chartData[0])
-    for (let i in chartData) {
-      const convertedValue = Number(chartData[i])
+    let maxValue = Number(chartData[0])
+    let minValue = Number(chartData[0])
+    chartData.forEach((value: any) => {
+      const convertedValue = Number(value)
       if (convertedValue > maxValue) {
         maxValue = convertedValue
       }
@@ -563,14 +525,14 @@ export function fillChartCell(
         minValue = convertedValue
       }
 
-      if (isNaN(convertedValue)) {
+      if (Number.isNaN(convertedValue)) {
         return getErrorCell(
           `Incompatible chart value: ${quiverCell.content}`,
           "All values in the array should be numbers."
         )
       }
       convertedChartData.push(convertedValue)
-    }
+    })
 
     if (maxValue > 1 || minValue < 0) {
       // Normalize values
@@ -602,9 +564,9 @@ export function fillProgressCell(
     return getEmptyCell()
   }
 
-  let cellData = Number(quiverCell.content)
+  const cellData = Number(quiverCell.content)
 
-  if (isNaN(cellData) || cellData < 0 || cellData > 1) {
+  if (Number.isNaN(cellData) || cellData < 0 || cellData > 1) {
     return getErrorCell(
       `Incompatible progress value: ${quiverCell.content}`,
       "The value has to be between 0 and 1."

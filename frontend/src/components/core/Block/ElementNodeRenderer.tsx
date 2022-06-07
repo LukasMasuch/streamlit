@@ -16,7 +16,6 @@
  */
 
 import {
-  Arrow as ArrowProto,
   Alert as AlertProto,
   Audio as AudioProto,
   BokehChart as BokehChartProto,
@@ -27,6 +26,7 @@ import {
   ColorPicker as ColorPickerProto,
   ComponentInstance as ComponentInstanceProto,
   DateInput as DateInputProto,
+  DataEditor as DataEditorProto,
   FileUploader as FileUploaderProto,
   MultiSelect as MultiSelectProto,
   NumberInput as NumberInputProto,
@@ -214,18 +214,6 @@ const RawElementNodeRenderer = (
     case "balloons":
       return <Balloons scriptRunId={props.scriptRunId} />
 
-    case "arrowDataFrame":
-      const arrowProto = node.element.arrowDataFrame as ArrowProto
-
-      return (
-        <ArrowDataFrame
-          element={arrowProto}
-          data={node.quiverElement as Quiver}
-          width={width}
-          height={height}
-        />
-      )
-
     case "arrowTable":
       return <ArrowTable element={node.quiverElement as Quiver} />
 
@@ -361,6 +349,20 @@ const RawElementNodeRenderer = (
       return <Video width={width} element={node.element.video as VideoProto} />
 
     // Widgets
+
+    case "dataEditor": {
+      const dataEditorProto = node.element.dataEditor as DataEditorProto
+      widgetProps.disabled = widgetProps.disabled || dataEditorProto.disabled
+      return (
+        <ArrowDataFrame
+          element={dataEditorProto}
+          data={node.quiverElement as Quiver}
+          width={width}
+          height={height}
+          {...widgetProps}
+        />
+      )
+    }
 
     case "button": {
       const buttonProto = node.element.button as ButtonProto

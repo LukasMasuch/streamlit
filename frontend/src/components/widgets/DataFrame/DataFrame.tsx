@@ -34,7 +34,7 @@ import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { Quiver } from "src/lib/Quiver"
 import { logError } from "src/lib/log"
 import { notNullOrUndefined } from "src/lib/utils"
-import { Arrow as ArrowProto } from "src/autogen/proto"
+import { DataEditor as DataEditorProto } from "src/autogen/proto"
 
 import {
   getCellTemplate,
@@ -244,7 +244,7 @@ type DataLoaderReturn = { numRows: number; numIndices: number } & Pick<
  * such as column resizing, sorting, etc.
  */
 export function useDataLoader(
-  element: ArrowProto,
+  element: DataEditorProto,
   data: Quiver,
   sort?: ColumnSortConfig | undefined
 ): DataLoaderReturn {
@@ -339,7 +339,7 @@ export function useDataLoader(
   }
 }
 export interface DataFrameProps {
-  element: ArrowProto
+  element: DataEditorProto
   data: Quiver
   widgetMgr: WidgetStateManager
   disabled: boolean
@@ -350,6 +350,8 @@ export interface DataFrameProps {
 function DataFrame({
   element,
   data,
+  widgetMgr,
+  disabled,
   height: propHeight,
   width: propWidth,
 }: DataFrameProps): ReactElement {

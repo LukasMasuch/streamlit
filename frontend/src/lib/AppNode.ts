@@ -18,7 +18,6 @@
 import { produce } from "immer"
 import { Map as ImmutableMap } from "immutable"
 import Protobuf, {
-  Arrow as ArrowProto,
   ArrowNamedDataSet,
   ArrowVegaLiteChart as ArrowVegaLiteChartProto,
   Block as BlockProto,
@@ -175,14 +174,14 @@ export class ElementNode implements AppNode {
     if (
       this.element.type !== "arrowTable" &&
       this.element.type !== "arrowDataFrame" &&
-      this.element.type !== "dataGrid"
+      this.element.type !== "dataEditor"
     ) {
       throw new Error(
         `elementType '${this.element.type}' is not a valid Quiver element!`
       )
     }
 
-    const toReturn = new Quiver(this.element[this.element.type] as ArrowProto)
+    const toReturn = new Quiver(this.element[this.element.type] as IArrow)
 
     this.lazyQuiverElement = toReturn
     return toReturn
@@ -259,7 +258,7 @@ export class ElementNode implements AppNode {
     switch (elementType) {
       case "arrowTable":
       case "arrowDataFrame":
-      case "dataGrid": {
+      case "dataEditor": {
         newNode.lazyQuiverElement = ElementNode.quiverAddRowsHelper(
           this.quiverElement,
           namedDataSet

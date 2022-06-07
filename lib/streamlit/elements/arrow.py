@@ -24,6 +24,7 @@ import pyarrow as pa
 
 from streamlit import type_util
 from streamlit.proto.Arrow_pb2 import Arrow as ArrowProto
+from streamlit.proto.DataEditor_pb2 import DataEditor as DataEditorProto
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -84,11 +85,11 @@ class ArrowMixin:
         delta_path = self.dg._get_delta_path_str()
         default_uuid = str(hash(delta_path))
 
-        proto = ArrowProto()
+        proto = DataEditorProto()
         marshall(proto, data, default_uuid)
         proto.columns = json.dumps(columns)
         return self.dg._enqueue(
-            delta_type="arrow_data_frame",
+            delta_type="data_editor",
             element_proto=proto,
             element_width=width,
             element_height=height,
@@ -130,7 +131,11 @@ class ArrowMixin:
         return cast("DeltaGenerator", self)
 
 
-def marshall(proto: ArrowProto, data: Data, default_uuid: Optional[str] = None) -> None:
+def marshall(
+    proto: Union[ArrowProto, DataEditorProto],
+    data: Data,
+    default_uuid: Optional[str] = None,
+) -> None:
     """Marshall pandas.DataFrame into an Arrow proto.
 
     Parameters
@@ -162,7 +167,9 @@ def marshall(proto: ArrowProto, data: Data, default_uuid: Optional[str] = None) 
         proto.data = type_util.data_frame_to_bytes(df)
 
 
-def _marshall_styler(proto: ArrowProto, styler: Styler, default_uuid: str) -> None:
+def _marshall_styler(
+    proto: Union[ArrowProto, DataEditorProto], styler: Styler, default_uuid: str
+) -> None:
     """Marshall pandas.Styler into an Arrow proto.
 
     Parameters
@@ -197,7 +204,9 @@ def _marshall_styler(proto: ArrowProto, styler: Styler, default_uuid: str) -> No
     _marshall_display_values(proto, styler.data, pandas_styles)
 
 
-def _marshall_uuid(proto: ArrowProto, styler: Styler, default_uuid: str) -> None:
+def _marshall_uuid(
+    proto: Union[ArrowProto, DataEditorProto], styler: Styler, default_uuid: str
+) -> None:
     """Marshall pandas.Styler uuid into an Arrow proto.
 
     Parameters
@@ -218,7 +227,9 @@ def _marshall_uuid(proto: ArrowProto, styler: Styler, default_uuid: str) -> None
     proto.styler.uuid = str(styler.uuid)
 
 
-def _marshall_caption(proto: ArrowProto, styler: Styler) -> None:
+def _marshall_caption(
+    proto: Union[ArrowProto, DataEditorProto], styler: Styler
+) -> None:
     """Marshall pandas.Styler caption into an Arrow proto.
 
     Parameters
@@ -235,7 +246,7 @@ def _marshall_caption(proto: ArrowProto, styler: Styler) -> None:
 
 
 def _marshall_styles(
-    proto: ArrowProto, styler: Styler, styles: Mapping[str, Any]
+    proto: Union[ArrowProto, DataEditorProto], styler: Styler, styles: Mapping[str, Any]
 ) -> None:
     """Marshall pandas.Styler styles into an Arrow proto.
 
@@ -361,7 +372,7 @@ def _pandas_style_to_css(
 
 
 def _marshall_display_values(
-    proto: ArrowProto, df: DataFrame, styles: Mapping[str, Any]
+    proto: Union[ArrowProto, DataEditorProto], df: DataFrame, styles: Mapping[str, Any]
 ) -> None:
     """Marshall pandas.Styler display values into an Arrow proto.
 
