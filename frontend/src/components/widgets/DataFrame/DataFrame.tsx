@@ -18,6 +18,7 @@
 import React, { ReactElement, useState } from "react"
 import {
   DataEditor as GlideDataEditor,
+  EditableGridCell,
   GridCell,
   GridColumn,
   DataEditorProps,
@@ -25,13 +26,14 @@ import {
   GridSelection,
   CompactSelection,
   GridMouseEventArgs,
+  isEditableGridCell,
 } from "@glideapps/glide-data-grid"
 import { useColumnSort } from "@glideapps/glide-data-grid-source"
 import { useExtraCells } from "@glideapps/glide-data-grid-cells"
 
 import { WidgetStateManager } from "src/lib/WidgetStateManager"
 import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
-import { Quiver } from "src/lib/Quiver"
+import { Quiver, Type as QuiverType, DataType } from "src/lib/Quiver"
 import { logError } from "src/lib/log"
 import { notNullOrUndefined } from "src/lib/utils"
 import { DataEditor as DataEditorProto } from "src/autogen/proto"
@@ -39,6 +41,7 @@ import { DataEditor as DataEditorProto } from "src/autogen/proto"
 import {
   getCellTemplate,
   fillCellTemplate,
+  updateCell,
   getColumnSortMode,
   ColumnType,
   getColumnTypeFromConfig,
@@ -64,6 +67,10 @@ type GridColumnWithCellTemplate = GridColumn & {
   columnType: ColumnType
   // The index number of the column.
   columnIndex: number
+  // The quiver data type of the column.
+  quiverType: QuiverType
+  // If `True`, the column can be edited.
+  isEditable: boolean
   // If `True`, the column is hidden (will not be shown).
   isHidden: boolean
   // If `True`, the column is a table index.
@@ -75,6 +82,7 @@ interface ColumnConfigProps {
   title?: string
   type?: string
   hide?: boolean
+  editable?: boolean
 }
 
 function applyColumnConfig(
@@ -126,6 +134,12 @@ function applyColumnConfig(
           columnType: getColumnTypeFromConfig(columnConfig.type),
         }
       : {}),
+    // Update editable state:
+    ...(notNullOrUndefined(columnConfig.editable)
+      ? {
+          isEditable: columnConfig.editable,
+        }
+      : {}),
   } as GridColumnWithCellTemplate
 }
 /**
@@ -146,6 +160,7 @@ export function getColumns(
       hasMenu: false,
       columnType: ColumnType.Text,
       columnIndex: 0,
+      isEditable: false,
       isIndex: true,
     } as GridColumnWithCellTemplate)
     return columns
@@ -163,7 +178,10 @@ export function getColumns(
       title: "", // Indices have empty titles as default.
       hasMenu: false,
       columnType,
+      quiverType,
       columnIndex: i,
+      isEditable: false,
+      isHidden: false,
       isIndex: true,
     } as GridColumnWithCellTemplate
 
@@ -184,7 +202,9 @@ export function getColumns(
       title: columnTitle,
       hasMenu: false,
       columnType,
+      quiverType,
       columnIndex: i + numIndices,
+      isEditable: false,
       isHidden: false,
       isIndex: false,
     } as GridColumnWithCellTemplate
@@ -196,6 +216,30 @@ export function getColumns(
     }
   }
   return columns
+}
+
+class EditingCache {
+  // column -> row -> value
+  private cachedContent: Map<number, Map<number, GridCell>> = new Map()
+
+  get(col: number, row: number): GridCell | undefined {
+    const colCache = this.cachedContent.get(col)
+
+    if (colCache === undefined) {
+      return undefined
+    }
+
+    return colCache.get(row)
+  }
+
+  set(col: number, row: number, value: GridCell): void {
+    if (this.cachedContent.get(col) === undefined) {
+      this.cachedContent.set(col, new Map())
+    }
+
+    const rowCache = this.cachedContent.get(col) as Map<number, GridCell>
+    rowCache.set(row, value)
+  }
 }
 
 /**
@@ -234,7 +278,7 @@ function updateSortingHeader(
  */
 type DataLoaderReturn = { numRows: number; numIndices: number } & Pick<
   DataEditorProps,
-  "columns" | "getCellContent" | "onColumnResize"
+  "columns" | "getCellContent" | "onColumnResize" | "onCellEdited"
 >
 
 /**
@@ -248,6 +292,7 @@ export function useDataLoader(
   data: Quiver,
   sort?: ColumnSortConfig | undefined
 ): DataLoaderReturn {
+  const editingCache = React.useRef<EditingCache>(new EditingCache())
   // The columns with the corresponding empty template for every type:
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [columnSizes, setColumnSizes] = useState<Map<string, number>>(
@@ -296,10 +341,16 @@ export function useDataLoader(
         return getCellTemplate(ColumnType.Text, true, false)
       }
 
+      // Try to load cell from cache
+      const cell = editingCache.current.get(col, row)
+      if (notNullOrUndefined(cell)) {
+        return cell
+      }
+
       const column = columns[col]
       const cellTemplate = getCellTemplate(
         column.columnType,
-        true,
+        !column.isEditable,
         column.isIndex
       )
 
@@ -321,7 +372,10 @@ export function useDataLoader(
     [columns, numRows, data]
   )
 
-  const { getCellContent: getCellContentSorted } = useColumnSort({
+  const {
+    getCellContent: getCellContentSorted,
+    getOriginalIndex,
+  } = useColumnSort({
     columns,
     getCellContent,
     rows: numRows,
@@ -330,12 +384,46 @@ export function useDataLoader(
 
   const updatedColumns = updateSortingHeader(columns, sort)
 
+  const onCellEdited = React.useCallback(
+    (
+      [col, row]: readonly [number, number],
+      newVal: EditableGridCell
+    ): void => {
+      // TODO: check if editable
+      // if (element.editable === false || element.disabled === true) {
+      //   return
+      // }
+
+      const currentCell = getCellContentSorted([col, row])
+
+      if (!isEditableGridCell(newVal) || !isEditableGridCell(currentCell)) {
+        return
+      }
+
+      // TODO: check if type is compatible with DataType instead
+      if (
+        typeof newVal.data === "string" ||
+        typeof newVal.data === "number" ||
+        typeof newVal.data === "boolean"
+      ) {
+        // TODO: support display values
+        editingCache.current.set(
+          col,
+          getOriginalIndex(row),
+          updateCell(currentCell, newVal.data as DataType)
+        )
+      }
+    },
+    [columns]
+  )
+
   return {
     numRows,
     numIndices,
     columns: updatedColumns,
     getCellContent: getCellContentSorted,
     onColumnResize,
+    onCellEdited,
   }
 }
 export interface DataFrameProps {
@@ -356,7 +444,6 @@ function DataFrame({
   width: propWidth,
 }: DataFrameProps): ReactElement {
   const extraCellArgs = useExtraCells()
-
   const [sort, setSort] = React.useState<ColumnSortConfig>()
 
   const {
@@ -365,6 +452,7 @@ function DataFrame({
     columns,
     getCellContent,
     onColumnResize,
+    onCellEdited,
   } = useDataLoader(element, data, sort)
 
   const [isFocused, setIsFocused] = React.useState<boolean>(true)
@@ -481,6 +569,8 @@ function DataFrame({
         // Add support for additional cells:
         provideEditor={extraCellArgs.provideEditor}
         drawCell={extraCellArgs.drawCell}
+        // Support editing:
+        onCellEdited={onCellEdited}
       />
     </ThemedDataFrameContainer>
   )

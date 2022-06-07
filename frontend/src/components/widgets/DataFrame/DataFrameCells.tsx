@@ -27,9 +27,15 @@ import {
   ImageCell,
   LoadingCell,
   CustomCell,
+  EditableGridCell,
 } from "@glideapps/glide-data-grid"
 
-import { DataFrameCell, Quiver, Type as QuiverType } from "src/lib/Quiver"
+import {
+  DataFrameCell,
+  Quiver,
+  DataType,
+  Type as QuiverType,
+} from "src/lib/Quiver"
 import { notNullOrUndefined } from "src/lib/utils"
 import { Vector } from "apache-arrow"
 
@@ -302,10 +308,10 @@ export function fillCellTemplate(
   let cellKind: GridCellKind | string = cellTemplate.kind
   if (cellTemplate.kind === GridCellKind.Custom) {
     cellKind = (cellTemplate.data as any)?.kind
+  }
 
-    if (!cellKind) {
-      throw new Error(`Unable to determine cell type for custom cell.`)
-    }
+  if (!cellKind) {
+    return getErrorCell("Unable to determine cell type.")
   }
 
   if (cssStyles && quiverCell.cssId) {
@@ -318,23 +324,80 @@ export function fillCellTemplate(
 
   switch (cellKind) {
     case GridCellKind.Text:
-      return fillTextCell(cellTemplate, quiverCell)
+      return fillTextCell(
+        cellTemplate,
+        quiverCell.content,
+        getDisplayContent(quiverCell)
+      )
     case GridCellKind.Number:
-      return fillNumberCell(cellTemplate, quiverCell)
+      return fillNumberCell(
+        cellTemplate,
+        quiverCell.content,
+        getDisplayContent(quiverCell)
+      )
     case GridCellKind.Boolean:
-      return fillBooleanCell(cellTemplate, quiverCell)
+      return fillBooleanCell(cellTemplate, quiverCell.content)
     case GridCellKind.Bubble:
-      return fillListCell(cellTemplate, quiverCell)
+      return fillListCell(cellTemplate, quiverCell.content)
     case GridCellKind.Uri:
-      return fillUriCell(cellTemplate, quiverCell)
+      return fillUrlCell(cellTemplate, quiverCell.content)
     case GridCellKind.Image:
-      return fillImageCell(cellTemplate, quiverCell)
+      return fillImageCell(cellTemplate, quiverCell.content)
     case "sparkline-cell":
-      return fillChartCell(cellTemplate, quiverCell)
+      return fillChartCell(cellTemplate, quiverCell.content)
     case "range-cell":
-      return fillProgressCell(cellTemplate, quiverCell)
+      return fillProgressCell(cellTemplate, quiverCell.content)
     default:
       return getErrorCell(`Unsupported cell kind: ${cellKind}`)
+  }
+}
+
+export function updateCell(
+  cell: EditableGridCell,
+  newValue: DataType,
+  newDisplayValue?: string
+): GridCell {
+  let cellKind: GridCellKind | string = cell.kind
+  if (cell.kind === GridCellKind.Custom) {
+    cellKind = (cell.data as any)?.kind
+  }
+
+  if (!cellKind) {
+    return getErrorCell("Unable to determine cell type.")
+  }
+  let updatedCell
+  switch (cellKind) {
+    case GridCellKind.Text:
+      updatedCell = fillTextCell(
+        cell,
+        newValue,
+        notNullOrUndefined(newDisplayValue)
+          ? newDisplayValue
+          : String(newValue)
+      )
+      break
+    case GridCellKind.Number:
+      updatedCell = fillNumberCell(
+        cell,
+        newValue,
+        notNullOrUndefined(newDisplayValue)
+          ? newDisplayValue
+          : String(newValue)
+      )
+      break
+    case GridCellKind.Boolean:
+      updatedCell = fillBooleanCell(cell, newValue)
+      break
+    case GridCellKind.Uri:
+      updatedCell = fillUrlCell(cell, newValue)
+      break
+    default:
+      return getErrorCell(`Cell cannot be edited: ${cellKind}`)
+  }
+
+  return {
+    ...updatedCell,
+    lastUpdated: performance.now(),
   }
 }
 
@@ -371,15 +434,12 @@ export function applyPandasStylerCss(
   return cell
 }
 
-export function fillListCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
-): GridCell {
+export function fillListCell(cell: GridCell, data: DataType): GridCell {
   let cellData = []
 
-  if (notNullOrUndefined(quiverCell.content)) {
+  if (notNullOrUndefined(data)) {
     cellData = JSON.parse(
-      JSON.stringify(quiverCell.content, (_key, value) =>
+      JSON.stringify(data, (_key, value) =>
         typeof value === "bigint" ? Number(value) : value
       )
     )
@@ -395,116 +455,95 @@ export function fillListCell(
   }
 
   return {
-    ...cellTemplate,
+    ...cell,
     data: cellData,
   } as BubbleCell
 }
 
-export function fillUriCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
-): GridCell {
+export function fillUrlCell(cell: GridCell, data: DataType): GridCell {
   return {
-    ...cellTemplate,
-    data: notNullOrUndefined(quiverCell.content)
-      ? String(quiverCell.content)
-      : "",
+    ...cell,
+    data: notNullOrUndefined(data) ? String(data) : "",
   } as UriCell
 }
 
 export function fillTextCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
+  cell: GridCell,
+  data: DataType,
+  displayData: string
 ): GridCell {
-  const formattedContents = getDisplayContent(quiverCell)
   return {
-    ...cellTemplate,
+    ...cell,
     data:
-      typeof quiverCell.content === "string" ||
-      !notNullOrUndefined(quiverCell.content) // don't use formattedContents for null/undefined
-        ? quiverCell.content
-        : formattedContents,
-    displayData: formattedContents,
+      typeof data === "string" || !notNullOrUndefined(data) // don't use formattedContents for null/undefined
+        ? data
+        : displayData,
+    displayData,
   } as TextCell
 }
 
-export function fillBooleanCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
-): GridCell {
-  if (
-    notNullOrUndefined(quiverCell.content) &&
-    typeof quiverCell.content !== "boolean"
-  ) {
-    return getErrorCell(`Incompatible boolean value: ${quiverCell.content}`)
+export function fillBooleanCell(cell: GridCell, data: any): GridCell {
+  if (notNullOrUndefined(data) && typeof data !== "boolean") {
+    return getErrorCell(`Incompatible boolean value: ${data}`)
   }
 
   return {
-    ...cellTemplate,
-    data: quiverCell.content as boolean,
+    ...cell,
+    data,
   } as BooleanCell
 }
 
 export function fillNumberCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
+  cell: GridCell,
+  data: DataType,
+  displayData: string
 ): GridCell {
   let cellData
 
-  if (notNullOrUndefined(quiverCell.content)) {
-    if (quiverCell.content instanceof Int32Array) {
+  if (notNullOrUndefined(data)) {
+    if (data instanceof Int32Array) {
       // int values need to be extracted this way:
       // eslint-disable-next-line prefer-destructuring
-      cellData = Number(quiverCell.content[0])
+      cellData = Number(data[0])
     } else {
-      cellData = Number(quiverCell.content)
+      cellData = Number(data)
     }
 
     if (Number.isNaN(cellData)) {
-      return getErrorCell(`Incompatible number value: ${quiverCell.content}`)
+      return getErrorCell(`Incompatible number value: ${data}`)
     }
   }
 
-  const formattedContents = getDisplayContent(quiverCell)
-
   return {
-    ...cellTemplate,
+    ...cell,
     data: cellData,
-    displayData: formattedContents,
+    displayData,
   } as NumberCell
 }
 
-export function fillImageCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
-): GridCell {
-  const imageUrls = notNullOrUndefined(quiverCell.content)
-    ? [String(quiverCell.content)]
-    : []
+export function fillImageCell(cell: GridCell, data: DataType): GridCell {
+  const imageUrls = notNullOrUndefined(data) ? [String(data)] : []
 
   return {
-    ...cellTemplate,
+    ...cell,
     data: imageUrls,
     displayData: imageUrls,
   } as ImageCell
 }
 
-export function fillChartCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
-): GridCell {
-  if (!notNullOrUndefined(quiverCell.content)) {
+export function fillChartCell(cell: GridCell, data: DataType): GridCell {
+  if (!notNullOrUndefined(data)) {
     return getEmptyCell()
   }
 
   let chartData
-  if (Array.isArray(quiverCell.content)) {
-    chartData = quiverCell.content
-  } else if (quiverCell.content instanceof Vector) {
-    chartData = quiverCell.content.toArray()
+  if (Array.isArray(data)) {
+    chartData = data
+  } else if (data instanceof Vector) {
+    chartData = data.toArray()
   } else {
     return getErrorCell(
-      `Incompatible chart value: ${quiverCell.content}`,
+      `Incompatible chart value: ${data}`,
       "The provided value is not an array."
     )
   }
@@ -527,7 +566,7 @@ export function fillChartCell(
 
       if (Number.isNaN(convertedValue)) {
         return getErrorCell(
-          `Incompatible chart value: ${quiverCell.content}`,
+          `Incompatible chart value: ${data}`,
           "All values in the array should be numbers."
         )
       }
@@ -546,38 +585,35 @@ export function fillChartCell(
   }
 
   return {
-    ...cellTemplate,
+    ...cell,
     copyData: JSON.stringify(convertedChartData),
     data: {
-      ...(cellTemplate as CustomCell)?.data,
+      ...(cell as CustomCell)?.data,
       values: normalizedChartData,
       displayValues: convertedChartData,
     },
   } as CustomCell
 }
 
-export function fillProgressCell(
-  cellTemplate: GridCell,
-  quiverCell: DataFrameCell
-): GridCell {
-  if (!notNullOrUndefined(quiverCell.content)) {
+export function fillProgressCell(cell: GridCell, data: DataType): GridCell {
+  if (!notNullOrUndefined(data)) {
     return getEmptyCell()
   }
 
-  const cellData = Number(quiverCell.content)
+  const cellData = Number(data)
 
   if (Number.isNaN(cellData) || cellData < 0 || cellData > 1) {
     return getErrorCell(
-      `Incompatible progress value: ${quiverCell.content}`,
+      `Incompatible progress value: ${data}`,
       "The value has to be between 0 and 1."
     )
   }
 
   return {
-    ...cellTemplate,
-    copyData: String(quiverCell.content),
+    ...cell,
+    copyData: String(data),
     data: {
-      ...(cellTemplate as CustomCell)?.data,
+      ...(cell as CustomCell)?.data,
       value: cellData,
       label: `${Math.round(cellData * 100).toString()}%`,
     },
