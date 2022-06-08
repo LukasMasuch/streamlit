@@ -85,6 +85,7 @@ from streamlit.echo import echo as echo
 from streamlit.legacy_caching import cache as cache
 from streamlit.caching import singleton as experimental_singleton
 from streamlit.caching import memo as experimental_memo
+from streamlit.elements.arrow import dataframe_column
 
 # This is set to True inside cli._main_run(), and is False otherwise.
 # If False, we should assume that DeltaGenerator functions are effectively

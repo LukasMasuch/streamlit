@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from collections.abc import Iterable
+import sys
 from typing import Any, Dict, List, Mapping, Optional, Union, cast, TYPE_CHECKING
 from typing import TypeVar
 import json
@@ -26,10 +28,76 @@ from streamlit import type_util
 from streamlit.proto.Arrow_pb2 import Arrow as ArrowProto
 from streamlit.proto.DataEditor_pb2 import DataEditor as DataEditorProto
 
+if sys.version_info >= (3, 8):
+    from typing import TypedDict, Literal
+else:
+    from typing_extensions import TypedDict, Literal
+
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
 
 Data = Union[DataFrame, Styler, pa.Table, ndarray, Iterable, Dict[str, List[Any]], None]
+ColumnType = Literal[
+    "text",
+    "number",
+    "boolean",
+    "list",
+    "url",
+    "image",
+    "bar-chart",
+    "line-chart",
+    "progress-chart",
+]
+
+
+class ColumnConfig(TypedDict, total=False):
+    width: Optional[int]
+    title: Optional[str]
+    type: Optional[ColumnType]
+    hidden: Optional[bool]
+    editable: Optional[bool]
+
+
+def dataframe_column(
+    *,
+    width: Optional[int] = None,
+    title: Optional[str] = None,
+    type: Optional[ColumnType] = None,
+    hidden: Optional[bool] = None,
+    editable: Optional[bool] = None,
+) -> ColumnConfig:
+    """Configures a dataframe column.
+
+    Parameters
+    ----------
+    width: int or None
+        The initial width of the column expressed in pixels.
+    title: str or None
+        The column title displayed on the frontend.
+        This only changes the display value and does not have any impact on the actual data.
+    type: str or None
+        The type of the column.
+        Available column types: text, number, boolean, list, url, image, bar-chart, line-chart, progress-chart,
+    hidden: bool or None
+        If `True`, the column will not be shown on the frontend.
+        This can be used to hide index columns as well.
+    editable: bool or None
+        If `True`, the column will be editable.
+
+    Examples
+    --------
+    >>> df = pd.DataFrame(
+    ...    np.random.randn(50, 20),
+    ...    columns=('col %d' % i for i in range(20)))
+    ...
+    >>> st._arrow_dataframe(df, columns={
+        "col 1": st.dataframe_column(title="Column 1", width=100)
+    })
+
+    """
+    return ColumnConfig(
+        width=width, title=title, type=type, hidden=hidden, editable=editable
+    )
 
 
 class ArrowMixin:
@@ -38,7 +106,7 @@ class ArrowMixin:
         data: Data = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
-        columns: Optional[Dict[Union[int, str], dict]] = None,
+        columns: Optional[Dict[Union[int, str], ColumnConfig]] = None,
     ) -> "DeltaGenerator":
         """Display a dataframe as an interactive table.
 
@@ -87,7 +155,15 @@ class ArrowMixin:
 
         proto = DataEditorProto()
         marshall(proto, data, default_uuid)
-        proto.columns = json.dumps(columns)
+
+        # Ignore all None values and prefix columns specified by index
+        proto.columns = json.dumps(
+            {
+                (f"index:{str(k)}" if isinstance(k, int) else k): v
+                for (k, v) in columns.items()
+                if v is not None
+            }
+        )
         return self.dg._enqueue(
             delta_type="data_editor",
             element_proto=proto,

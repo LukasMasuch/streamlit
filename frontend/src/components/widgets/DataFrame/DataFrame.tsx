@@ -81,7 +81,7 @@ interface ColumnConfigProps {
   width?: number
   title?: string
   type?: string
-  hide?: boolean
+  hidden?: boolean
   editable?: boolean
 }
 
@@ -94,11 +94,12 @@ function applyColumnConfig(
     return column
   }
 
+  console.log(columnsConfig)
   let columnConfig
-  if (columnsConfig.has(column.columnIndex)) {
-    columnConfig = columnsConfig.get(column.columnIndex)
-  } else if (columnsConfig.has(column.title)) {
+  if (columnsConfig.has(column.title)) {
     columnConfig = columnsConfig.get(column.title)
+  } else if (columnsConfig.has(`index:${column.columnIndex}`)) {
+    columnConfig = columnsConfig.get(`index:${column.columnIndex}`)
   }
 
   if (!columnConfig) {
@@ -106,7 +107,10 @@ function applyColumnConfig(
     return column
   }
 
-  if (notNullOrUndefined(columnConfig.hide) && columnConfig.hide === true) {
+  if (
+    notNullOrUndefined(columnConfig.hidden) &&
+    columnConfig.hidden === true
+  ) {
     // If column is hidden, return null
     return null
   }
@@ -122,8 +126,8 @@ function applyColumnConfig(
     // Update width:
     ...(notNullOrUndefined(columnConfig.width)
       ? {
-          width: Math.max(
-            Math.min(columnConfig.width, MIN_COLUMN_WIDTH),
+          width: Math.min(
+            Math.max(columnConfig.width, MIN_COLUMN_WIDTH),
             MAX_COLUMN_WIDTH
           ),
         }
@@ -389,14 +393,20 @@ export function useDataLoader(
       [col, row]: readonly [number, number],
       newVal: EditableGridCell
     ): void => {
-      // TODO: check if editable
-      // if (element.editable === false || element.disabled === true) {
-      //   return
-      // }
+      if (element.disabled === true) {
+        // TODO: check for editable flag
+        //element.editable === false ||
+        return
+      }
 
       const currentCell = getCellContentSorted([col, row])
+      const column = updatedColumns[col]
 
-      if (!isEditableGridCell(newVal) || !isEditableGridCell(currentCell)) {
+      if (
+        !isEditableGridCell(newVal) ||
+        !isEditableGridCell(currentCell) ||
+        !column.isEditable
+      ) {
         return
       }
 
