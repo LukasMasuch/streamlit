@@ -544,7 +544,7 @@ export function fillChartCell(cell: GridCell, data: DataType): GridCell {
   } else {
     return getErrorCell(
       `Incompatible chart value: ${data}`,
-      "The provided value is not an array."
+      "The provided value is not a number array."
     )
   }
 
@@ -571,6 +571,7 @@ export function fillChartCell(cell: GridCell, data: DataType): GridCell {
         )
       }
       convertedChartData.push(convertedValue)
+      return null // TODO: why is this needed?
     })
 
     if (maxValue > 1 || minValue < 0) {

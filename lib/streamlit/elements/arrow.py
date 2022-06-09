@@ -58,7 +58,7 @@ class ColumnConfig(TypedDict, total=False):
     editable: Optional[bool]
 
 
-def dataframe_column(
+def column_config(
     *,
     width: Optional[int] = None,
     title: Optional[str] = None,

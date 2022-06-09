@@ -395,7 +395,7 @@ export function useDataLoader(
     ): void => {
       if (element.disabled === true) {
         // TODO: check for editable flag
-        //element.editable === false ||
+        // element.editable === false ||
         return
       }
 
@@ -542,7 +542,10 @@ function DataFrame({
         getCellContent={getCellContent}
         onColumnResized={onColumnResize}
         // Freeze all index columns:
-        freezeColumns={numIndices}
+        freezeColumns={
+          columns.filter(col => (col as GridColumnWithCellTemplate).isIndex)
+            .length
+        }
         smoothScrollX={true}
         // Only activate smooth mode for vertical scrolling for large tables:
         smoothScrollY={numRows < 100000}
