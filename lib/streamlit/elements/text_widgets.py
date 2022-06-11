@@ -35,7 +35,7 @@ from .utils import check_callback_rules, check_session_state_rules
 class TextWidgetsMixin:
     def text_input(
         self,
-        label: str,
+        label: Optional[str],
         value: str = "",
         max_chars: Optional[int] = None,
         key: Optional[Key] = None,
@@ -123,7 +123,7 @@ class TextWidgetsMixin:
 
     def _text_input(
         self,
-        label: str,
+        label: Optional[str],
         value: str = "",
         max_chars: Optional[int] = None,
         key: Optional[Key] = None,
@@ -143,7 +143,8 @@ class TextWidgetsMixin:
         check_session_state_rules(default_value=None if value == "" else value, key=key)
 
         text_input_proto = TextInputProto()
-        text_input_proto.label = label
+        if label is not None:
+            text_input_proto.label = label
         text_input_proto.default = str(value)
         text_input_proto.form_id = current_form_id(self.dg)
 
@@ -194,6 +195,7 @@ class TextWidgetsMixin:
             text_input_proto.value = current_value
             text_input_proto.set_value = True
 
+        print(text_input_proto)
         self.dg._enqueue("text_input", text_input_proto)
         return cast(str, current_value)
 
