@@ -16,8 +16,10 @@
  */
 
 import React from "react"
-import { StyledWidgetLabel } from "./styled-components"
+
 import { notNullOrUndefined } from "src/lib/utils"
+
+import { StyledWidgetLabel } from "./styled-components"
 
 export interface LabelProps {
   // Label body text. If nullsy, WidgetLabel won't show. But if empty string it will.
