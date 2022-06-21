@@ -20,7 +20,6 @@ from typing import Any, cast, Dict, NamedTuple, Optional, TYPE_CHECKING
 from typing_extensions import Final
 
 import pyarrow as pa
-from streamlit.scriptrunner.script_run_context import track_fingerprint
 import tzlocal
 from pandas import DataFrame
 from pandas.io.formats.style import Styler
@@ -45,7 +44,6 @@ class CSSStyle(NamedTuple):
 
 
 class LegacyDataFrameMixin:
-    @track_fingerprint
     def _legacy_dataframe(
         self,
         data: Data = None,
@@ -110,7 +108,6 @@ class LegacyDataFrameMixin:
             element_height=height,
         )
 
-    @track_fingerprint
     def _legacy_table(self, data: Data = None) -> "DeltaGenerator":
         """Display a static table.
 

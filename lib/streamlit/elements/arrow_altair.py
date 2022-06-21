@@ -47,7 +47,6 @@ class ChartType(Enum):
 
 
 class ArrowAltairMixin:
-    @track_fingerprint
     def _arrow_line_chart(
         self,
         data: Data = None,
@@ -100,7 +99,6 @@ class ArrowAltairMixin:
 
         return self.dg._enqueue("arrow_line_chart", proto, last_index=last_index)
 
-    @track_fingerprint
     def _arrow_area_chart(
         self,
         data: Data = None,
@@ -153,7 +151,6 @@ class ArrowAltairMixin:
 
         return self.dg._enqueue("arrow_area_chart", proto, last_index=last_index)
 
-    @track_fingerprint
     def _arrow_bar_chart(
         self,
         data: Data = None,
@@ -206,7 +203,6 @@ class ArrowAltairMixin:
 
         return self.dg._enqueue("arrow_bar_chart", proto, last_index=last_index)
 
-    @track_fingerprint
     def _arrow_altair_chart(
         self, altair_chart: Chart, use_container_width: bool = False
     ) -> "DeltaGenerator":

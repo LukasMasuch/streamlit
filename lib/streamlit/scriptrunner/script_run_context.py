@@ -12,14 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from distutils.log import debug
+import sys
+import contextlib
 import threading
-from typing import Dict, Optional, List, Callable, Set
+from typing import Dict, Optional, List, Callable, Set, Tuple
 from typing_extensions import Final
 from timeit import default_timer as timer
 from typing import Any
 from functools import wraps
 import inspect
 import enum
+from collections.abc import Sized
 
 import attr
 
@@ -32,74 +36,112 @@ from streamlit.proto.AppProfile_pb2 import Fingerprint, Argument
 
 LOGGER: Final = get_logger(__name__)
 
-
-def get_type_name(obj: Any) -> str:
-    obj_type = type(obj)
-    if obj_type.__module__ == "builtins":
-        return obj_type.__qualname__
-    return f"{obj_type.__module__}.{obj_type.__qualname__}"
+_TYPE_MAPPING = {"streamlit.delta_generator.DeltaGenerator": "DG"}
 
 
-def get_arg_metadata(arg: Any) -> Optional[str]:
+def get_type_name(obj: object) -> str:
+    with contextlib.suppress(Exception):
+        obj_type = type(obj)
+        if obj_type.__module__ == "builtins":
+            type_name = obj_type.__qualname__
+        else:
+            type_name = f"{obj_type.__module__}.{obj_type.__qualname__}"
+
+        if type_name in _TYPE_MAPPING:
+            type_name = _TYPE_MAPPING[type_name]
+        return type_name
+    return "failed"
+
+
+def get_callable_name(callable: Callable) -> str:
+    with contextlib.suppress(Exception):
+        name = "unknown"
+        if inspect.isclass(callable):
+            name = callable.__class__.__name__
+        elif hasattr(callable, "__qualname__"):
+            name = callable.__qualname__
+        elif hasattr(callable, "__name__"):
+            name = callable.__name__
+        return name
+    return "failed"
+
+
+def get_arg_metadata(arg: object) -> Tuple[Optional[str], Optional[str]]:
     if isinstance(arg, bool):
-        return str(arg)
+        with contextlib.suppress(Exception):
+            return "value", str(arg)
 
     if isinstance(arg, enum.Enum):
-        return str(arg)
+        with contextlib.suppress(Exception):
+            return "value", str(arg)
 
-    if hasattr(arg, "__len__"):
-        return str(len(arg))
+    if isinstance(arg, Sized):
+        with contextlib.suppress(Exception):
+            return "length", str(len(arg))
 
-    return None
+    return None, None
 
 
-def track_fingerprint(f):
-    @wraps(f)
+def track_fingerprint(callable: Callable) -> Callable:
+    @wraps(callable)
     def wrap(*args, **kwargs):
         exec_start = timer()
-        result = f(*args, **kwargs)
+        result = callable(*args, **kwargs)
 
-        ctx = get_script_run_ctx()
+        with contextlib.suppress(Exception):
+            fingerprint_exec_start = timer()
+            ctx = get_script_run_ctx()
 
-        arg_keywords = inspect.getfullargspec(f).args[1:]
-
-        arguments: List[Argument] = [
-            Argument(
-                keyword=arg_keywords[i] if len(arg_keywords) > i + 1 else f"{i}",
-                type=get_type_name(arg),
-                metadata=get_arg_metadata(arg),
-                position=i,
-            )
-            for i, arg in enumerate(args[1:])
-        ]
-
-        arguments.extend(
-            [
+            # Todo: ignore self
+            arg_keywords = inspect.getfullargspec(callable).args
+            arguments: List[Argument] = [
                 Argument(
-                    keyword=kwarg,
-                    type=get_type_name(kwargs[kwarg]),
-                    metadata=get_arg_metadata(kwargs[kwarg]),
+                    keyword=arg_keywords[i] if len(arg_keywords) > i else f"{i}",
+                    type=get_type_name(arg),
+                    metadata_type=get_arg_metadata(arg)[0],
+                    metadata=get_arg_metadata(arg)[1],
+                    position=i,
                 )
-                for kwarg in kwargs
+                for i, arg in enumerate(args)
             ]
-        )
 
-        name = "unknown"
-        if inspect.isclass(f):
-            name = f.__class__.__name__
-        elif hasattr(f, "__qualname__"):
-            name = f.__qualname__
-        elif hasattr(f, "__name__"):
-            name = f.__name__
-
-        ctx.add_fingerprint(
-            Fingerprint(
-                name=name,
-                arguments=arguments,
-                return_type=get_type_name(result),
-                exec_time=float(timer() - exec_start),
+            arguments.extend(
+                [
+                    Argument(
+                        keyword=kwarg,
+                        type=get_type_name(kwargs[kwarg]),
+                        metadata_type=get_arg_metadata(kwargs[kwarg])[0],
+                        metadata=get_arg_metadata(kwargs[kwarg])[1],
+                    )
+                    for kwarg in kwargs
+                ]
             )
-        )
+
+            # modulenames = set(sys.modules) & set(globals())
+            # allmodules = [sys.modules[name] for name in modulenames]
+            # print(allmodules)
+            debug_str = ""
+
+            name = get_callable_name(callable)
+            if name == "CustomComponent.create_instance":
+                # Try to set name of custom component
+                with contextlib.suppress(Exception):
+                    # args[0] contains self
+                    if args[0].name:
+                        name = f"CustomComponent: {args[0].name}".replace(
+                            "streamlit.scriptrunner.script_run_context.", ""
+                        )
+
+            ctx.add_fingerprint(
+                Fingerprint(
+                    name=name,
+                    arguments=arguments,
+                    return_type=get_type_name(result),
+                    exec_time=float(timer() - exec_start),
+                    debug_stuff=debug_str,
+                    fingerprint_exec_time=float(timer() - fingerprint_exec_start),
+                )
+            )
         return result
 
     return wrap

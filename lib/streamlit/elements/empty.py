@@ -15,14 +15,12 @@
 from typing import cast, TYPE_CHECKING
 
 from streamlit.proto.Empty_pb2 import Empty as EmptyProto
-from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
 
 
 class EmptyMixin:
-    @track_fingerprint
     def empty(self) -> "DeltaGenerator":
         """Insert a single-element container.
 

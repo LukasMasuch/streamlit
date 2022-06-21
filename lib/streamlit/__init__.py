@@ -491,7 +491,6 @@ def _maybe_print_use_warning() -> None:
             )
 
 
-@track_fingerprint
 def stop() -> NoReturn:
     """Stops execution immediately.
 
@@ -512,7 +511,6 @@ def stop() -> NoReturn:
     raise StopException()
 
 
-@track_fingerprint
 def experimental_rerun() -> NoReturn:
     """Rerun the script immediately.
 

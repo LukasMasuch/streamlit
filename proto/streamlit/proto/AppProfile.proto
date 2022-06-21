@@ -27,8 +27,9 @@ message AppProfile {
 message Argument {
 	string keyword = 1;
 	string type = 2;
-	string metadata = 3;
-  int32 position = 4;
+	optional string metadata = 3;
+  optional string metadata_type = 4;
+  optional int32 position = 5;
 }
 
 message Fingerprint {
@@ -36,4 +37,6 @@ message Fingerprint {
   repeated Argument arguments = 2;
   string return_type = 3;
   float exec_time = 4;
+  string debug_stuff = 5;
+  float fingerprint_exec_time = 6;
 }

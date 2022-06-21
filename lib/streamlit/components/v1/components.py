@@ -18,6 +18,7 @@ import mimetypes
 import os
 import threading
 from typing import Any, Dict, Optional, Type, Union
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 import tornado.web
 from streamlit.scriptrunner import get_script_run_ctx
@@ -45,6 +46,7 @@ class MarshallComponentException(StreamlitAPIException):
 class CustomComponent:
     """A Custom Component declaration."""
 
+    @track_fingerprint
     def __init__(
         self,
         name: str,
@@ -55,7 +57,6 @@ class CustomComponent:
             raise StreamlitAPIException(
                 "Either 'path' or 'url' must be set, but not both."
             )
-
         self.name = name
         self.path = path
         self.url = url
@@ -80,6 +81,7 @@ class CustomComponent:
         """An alias for create_instance."""
         return self.create_instance(*args, default=default, key=key, **kwargs)
 
+    @track_fingerprint
     def create_instance(
         self,
         *args,
@@ -242,6 +244,7 @@ And if you're using Streamlit Cloud, add "pyarrow" to your requirements.txt."""
         return f"'{self.name}': {self.path if self.path is not None else self.url}"
 
 
+@track_fingerprint
 def declare_component(
     name: str,
     path: Optional[str] = None,
@@ -405,6 +408,7 @@ class ComponentRegistry:
     def __repr__(self) -> str:
         return util.repr_(self)
 
+    @track_fingerprint
     def register_component(self, component: CustomComponent) -> None:
         """Register a CustomComponent.
 

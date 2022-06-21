@@ -25,6 +25,7 @@ from streamlit.errors import StreamlitAPIWarning
 from streamlit.errors import StreamlitDeprecationWarning
 from streamlit.errors import UncaughtAppException
 from streamlit.logger import get_logger
+from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -43,6 +44,7 @@ _STREAMLIT_DIR: Final = os.path.join(
 
 
 class ExceptionMixin:
+    @track_fingerprint
     def exception(self, exception: BaseException) -> "DeltaGenerator":
         """Display an exception.
 

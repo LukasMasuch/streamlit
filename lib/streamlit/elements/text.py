@@ -15,7 +15,6 @@
 from typing import Any, cast, TYPE_CHECKING
 
 from streamlit.proto.Text_pb2 import Text as TextProto
-from streamlit.scriptrunner.script_run_context import track_fingerprint
 from .utils import clean_text
 
 if TYPE_CHECKING:
@@ -23,7 +22,6 @@ if TYPE_CHECKING:
 
 
 class TextMixin:
-    @track_fingerprint
     def text(self, body: Any) -> "DeltaGenerator":
         """Write fixed-width and preformatted text.
 
