@@ -22,6 +22,8 @@ from pympler import asizeof
 
 from streamlit.logger import get_logger
 from streamlit.stats import CacheStatsProvider, CacheStat
+from streamlit.scriptrunner.script_run_context import track_fingerprint
+
 from .cache_errors import CacheKeyNotFoundError, CacheType
 from .cache_utils import (
     Cache,
@@ -137,6 +139,7 @@ class SingletonAPI:
         ...
 
     @staticmethod
+    @track_fingerprint
     def __call__(
         func: Optional[F] = None,
         *,
@@ -235,6 +238,7 @@ class SingletonAPI:
         )
 
     @staticmethod
+    @track_fingerprint
     def clear() -> None:
         """Clear all singleton caches."""
         _singleton_caches.clear_all()

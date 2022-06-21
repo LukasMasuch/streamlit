@@ -40,5 +40,5 @@ from .singleton_decorator import (
 )
 
 # Create and export public API singletons.
-memo = track_fingerprint(MemoAPI())
-singleton = track_fingerprint(SingletonAPI())
+memo = MemoAPI()
+singleton = SingletonAPI()

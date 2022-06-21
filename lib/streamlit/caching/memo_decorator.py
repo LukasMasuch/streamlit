@@ -34,6 +34,8 @@ from streamlit.file_util import (
 )
 from streamlit.logger import get_logger
 from streamlit.stats import CacheStatsProvider, CacheStat
+from streamlit.scriptrunner.script_run_context import track_fingerprint
+
 from .cache_errors import (
     CacheError,
     CacheKeyNotFoundError,
@@ -199,7 +201,7 @@ class MemoAPI:
     # Bare decorator usage
     @overload
     @staticmethod
-    def __call__(func: F) -> F:
+    def __call__(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
         ...
 
     # Decorator with arguments
@@ -212,19 +214,20 @@ class MemoAPI:
         suppress_st_warning: bool = False,
         max_entries: Optional[int] = None,
         ttl: Optional[float] = None,
-    ) -> Callable[[F], F]:
+    ) -> Callable[[Any], Any]:
         ...
 
     @staticmethod
+    @track_fingerprint
     def __call__(
-        func: Optional[F] = None,
+        func: Optional[Callable[[Any], Any]] = None,
         *,
         persist: Optional[str] = None,
         show_spinner: bool = True,
         suppress_st_warning: bool = False,
         max_entries: Optional[int] = None,
         ttl: Optional[float] = None,
-    ):
+    ) -> Callable[[Any], Any]:
         """Function decorator to memoize function executions.
 
         Memoized data is stored in "pickled" form, which means that the return
@@ -349,6 +352,7 @@ class MemoAPI:
         )
 
     @staticmethod
+    @track_fingerprint
     def clear() -> None:
         """Clear all in-memory and on-disk memo caches."""
         _memo_caches.clear_all()

@@ -355,6 +355,7 @@ def _write_to_cache(
         _write_to_disk_cache(key, value)
 
 
+@track_fingerprint
 def cache(
     func=None,
     persist=False,
