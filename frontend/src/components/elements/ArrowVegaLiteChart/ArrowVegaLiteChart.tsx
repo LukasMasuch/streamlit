@@ -22,10 +22,14 @@ import { merge } from "lodash"
 import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { ensureError } from "src/lib/ErrorHandling"
 import { IndexTypeName, Quiver } from "src/lib/Quiver"
+import { WidgetInfo, WidgetStateManager } from "src/lib/WidgetStateManager"
+
 import { Theme } from "src/theme"
 import embed from "vega-embed"
 import * as vega from "vega"
+
 import { StyledVegaLiteChartContainer } from "./styled-components"
+import { debounce } from "src/lib/utils"
 
 const MagicFields = {
   DATAFRAME_INDEX: "(index)",
@@ -57,6 +61,7 @@ interface Props {
   element: VegaLiteChartElement
   theme: Theme
   width: number
+  widgetMgr: WidgetStateManager
 }
 
 /** All of the data that makes up a VegaLite chart. */
@@ -320,6 +325,52 @@ export class ArrowVegaLiteChart extends PureComponent<PropsWithHeight, State> {
     const { vgSpec, view, finalize } = await embed(this.element, spec)
 
     this.vegaView = view
+    console.log(spec)
+
+    function getSelectorsFromChart(spec: any): string[] {
+      if ("selection" in spec) {
+        return Object.keys(spec["selection"])
+      } else {
+        return []
+      }
+    }
+
+    function getSelectorsFromCombinedChart(spec: any, type: string): string[] {
+      const selectors: string[] = []
+      if (type in spec && spec[type]) {
+        for (const chart of Object.keys(spec[type])) {
+          selectors.push.apply(
+            selectors,
+            getSelectorsFromChart(spec[type][chart])
+          )
+        }
+      }
+      return selectors
+    }
+
+    function getSelectors(spec: any): string[] {
+      const selectors: string[] = []
+      selectors.push.apply(selectors, getSelectorsFromChart(spec))
+      selectors.push.apply(
+        selectors,
+        getSelectorsFromCombinedChart(spec, "hconcat")
+      )
+      selectors.push.apply(
+        selectors,
+        getSelectorsFromCombinedChart(spec, "vconcat")
+      )
+      return selectors
+    }
+
+    getSelectors(spec).forEach(function(item, index) {
+      view.addSignalListener(
+        item,
+        debounce(200, (name: string, value: any) => {
+          console.log(name, value)
+        })
+      )
+    })
+
     this.vegaFinalizer = finalize
 
     const datasets = getDataArrays(el)
