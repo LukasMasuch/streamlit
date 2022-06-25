@@ -20,7 +20,7 @@ from datetime import date
 from enum import Enum
 from typing import Any
 from typing import Dict
-from typing import cast, TYPE_CHECKING
+from typing import cast, TYPE_CHECKING, Callable, Union
 
 import altair as alt
 import pandas as pd
@@ -203,7 +203,10 @@ class ArrowAltairMixin:
         return self.dg._enqueue("arrow_bar_chart", proto, last_index=last_index)
 
     def _arrow_altair_chart(
-        self, altair_chart: Chart, use_container_width: bool = False
+        self,
+        altair_chart: Chart,
+        use_container_width: bool = False,
+        on_selection: Union[str, Callable[..., None], None] = None,
     ) -> "DeltaGenerator":
         """Display a chart using the Altair library.
 
@@ -246,6 +249,9 @@ class ArrowAltairMixin:
             altair_chart,
             use_container_width=use_container_width,
         )
+
+        if on_selection:
+            arrow_vega_lite._on_selection(proto, on_selection)
 
         return self.dg._enqueue("arrow_vega_lite_chart", proto)
 

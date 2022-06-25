@@ -33,6 +33,7 @@ from streamlit.proto.Slider_pb2 import Slider
 from streamlit.proto.TextArea_pb2 import TextArea
 from streamlit.proto.TextInput_pb2 import TextInput
 from streamlit.proto.TimeInput_pb2 import TimeInput
+from streamlit.proto.ArrowVegaLiteChart_pb2 import ArrowVegaLiteChart
 from streamlit.proto.WidgetStates_pb2 import WidgetStates, WidgetState
 from .session_state import (
     GENERATED_WIDGET_KEY_PREFIX,
@@ -65,6 +66,7 @@ WidgetProto = Union[
     TextArea,
     TextInput,
     TimeInput,
+    ArrowVegaLiteChart,
 ]
 
 
@@ -186,6 +188,7 @@ element_type_to_value_type = {
     "text_input": "string_value",
     "time_input": "string_value",
     "component_instance": "json_value",
+    "arrow_vega_lite_chart": "json_value",
 }
 
 

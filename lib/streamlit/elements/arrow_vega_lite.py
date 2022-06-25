@@ -15,14 +15,20 @@
 """A Python wrapper around Vega-Lite."""
 
 import json
-from typing import Any, Dict, Optional, cast, TYPE_CHECKING
+import inspect
+from typing import Any, Dict, Optional, cast, TYPE_CHECKING, Union, Callable
 from typing_extensions import Final
 
 import streamlit.elements.lib.dicttools as dicttools
 from streamlit.logger import get_logger
+from streamlit.scriptrunner import get_script_run_ctx
 from streamlit.proto.ArrowVegaLiteChart_pb2 import (
     ArrowVegaLiteChart as ArrowVegaLiteChartProto,
 )
+from streamlit.state.session_state_proxy import (
+    SessionStateProxy,
+)
+from streamlit.state.widgets import register_widget
 
 from . import arrow
 from .arrow import Data
@@ -34,12 +40,55 @@ if TYPE_CHECKING:
 LOGGER: Final = get_logger(__name__)
 
 
+def _on_selection(
+    proto: ArrowVegaLiteChartProto,
+    on_selection: Union[str, Callable[..., None], None] = None,
+):
+    if on_selection is not None:
+
+        def deserialize_vega_lite_event(ui_value, widget_id=""):
+            if ui_value is None:
+                return {}
+            if isinstance(ui_value, str):
+                return json.loads(ui_value)
+
+            return ui_value
+
+        def serialize_vega_lite_event(v):
+            return json.dumps(v, default=str)
+
+        current_value, _ = register_widget(
+            "arrow_vega_lite_chart",
+            proto,
+            user_key=None,
+            on_change_handler=None,
+            args=None,
+            kwargs=None,
+            deserializer=deserialize_vega_lite_event,
+            serializer=serialize_vega_lite_event,
+            ctx=get_script_run_ctx(),
+        )
+
+        if isinstance(on_selection, str):
+            # Set in session state
+            session_state = SessionStateProxy()
+            session_state[on_selection] = current_value
+        elif callable(on_selection):
+            # Call the callback function
+            kwargs_callback = {}
+            arguments = inspect.getfullargspec(on_selection).args
+            if "selections" in arguments:
+                kwargs_callback["selections"] = current_value
+            on_selection(**kwargs_callback)
+
+
 class ArrowVegaLiteMixin:
     def _arrow_vega_lite_chart(
         self,
         data: Data = None,
         spec: Optional[Dict[str, Any]] = None,
         use_container_width: bool = False,
+        on_selection: Union[str, Callable[..., None], None] = None,
         **kwargs: Any,
     ) -> "DeltaGenerator":
         """Display a chart using the Vega-Lite library.
@@ -95,6 +144,10 @@ class ArrowVegaLiteMixin:
             use_container_width=use_container_width,
             **kwargs,
         )
+
+        if on_selection:
+            _on_selection(proto, on_selection)
+
         return self.dg._enqueue("arrow_vega_lite_chart", proto)
 
     @property

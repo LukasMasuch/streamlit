@@ -87,6 +87,9 @@ export interface VegaLiteChartElement {
 
   /** If True, will overwrite the chart width spec to fit to container. */
   useContainerWidth: boolean
+
+  id: string | null
+  formId: string | null
 }
 
 /** A mapping of `ArrowNamedDataSet.proto`. */
@@ -107,6 +110,7 @@ export interface PropsWithHeight extends Props {
 
 interface State {
   error?: Error
+  selections: Record<string, any>
 }
 
 export class ArrowVegaLiteChart extends PureComponent<PropsWithHeight, State> {
@@ -133,6 +137,7 @@ export class ArrowVegaLiteChart extends PureComponent<PropsWithHeight, State> {
 
   readonly state = {
     error: undefined,
+    selections: {} as Record<string, any>,
   }
 
   public async componentDidMount(): Promise<void> {
@@ -329,7 +334,7 @@ export class ArrowVegaLiteChart extends PureComponent<PropsWithHeight, State> {
 
     function getSelectorsFromChart(spec: any): string[] {
       if ("selection" in spec) {
-        return Object.keys(spec["selection"])
+        return Object.keys(spec.selection)
       } else {
         return []
       }
@@ -362,14 +367,31 @@ export class ArrowVegaLiteChart extends PureComponent<PropsWithHeight, State> {
       return selectors
     }
 
-    getSelectors(spec).forEach(function(item, index) {
-      view.addSignalListener(
-        item,
-        debounce(200, (name: string, value: any) => {
-          console.log(name, value)
-        })
-      )
-    })
+    if (this.props.widgetMgr && this.props.element.id) {
+      var that = this
+      getSelectors(spec).forEach(function(item, _) {
+        view.addSignalListener(
+          item,
+          debounce(150, (name: string, value: any) => {
+            const updatedSelections = {
+              ...that.state.selections,
+              [name]: value,
+            }
+            that.setState({
+              selections: updatedSelections,
+            })
+
+            that.props.widgetMgr?.setJsonValue(
+              that.props.element as WidgetInfo,
+              updatedSelections,
+              {
+                fromUi: true,
+              }
+            )
+          })
+        )
+      })
+    }
 
     this.vegaFinalizer = finalize
 
