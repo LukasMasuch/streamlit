@@ -23,13 +23,12 @@ import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { ensureError } from "src/lib/ErrorHandling"
 import { IndexTypeName, Quiver } from "src/lib/Quiver"
 import { WidgetInfo, WidgetStateManager } from "src/lib/WidgetStateManager"
-
+import { debounce } from "src/lib/utils"
 import { Theme } from "src/theme"
 import embed from "vega-embed"
 import * as vega from "vega"
 
 import { StyledVegaLiteChartContainer } from "./styled-components"
-import { debounce } from "src/lib/utils"
 
 const MagicFields = {
   DATAFRAME_INDEX: "(index)",
@@ -330,24 +329,19 @@ export class ArrowVegaLiteChart extends PureComponent<PropsWithHeight, State> {
     const { vgSpec, view, finalize } = await embed(this.element, spec)
 
     this.vegaView = view
-    console.log(spec)
 
     function getSelectorsFromChart(spec: any): string[] {
       if ("selection" in spec) {
         return Object.keys(spec.selection)
-      } else {
-        return []
       }
+      return []
     }
 
     function getSelectorsFromCombinedChart(spec: any, type: string): string[] {
       const selectors: string[] = []
       if (type in spec && spec[type]) {
         for (const chart of Object.keys(spec[type])) {
-          selectors.push.apply(
-            selectors,
-            getSelectorsFromChart(spec[type][chart])
-          )
+          selectors.push(...getSelectorsFromChart(spec[type][chart]))
         }
       }
       return selectors
@@ -355,34 +349,27 @@ export class ArrowVegaLiteChart extends PureComponent<PropsWithHeight, State> {
 
     function getSelectors(spec: any): string[] {
       const selectors: string[] = []
-      selectors.push.apply(selectors, getSelectorsFromChart(spec))
-      selectors.push.apply(
-        selectors,
-        getSelectorsFromCombinedChart(spec, "hconcat")
-      )
-      selectors.push.apply(
-        selectors,
-        getSelectorsFromCombinedChart(spec, "vconcat")
-      )
+      selectors.push(...getSelectorsFromChart(spec))
+      selectors.push(...getSelectorsFromCombinedChart(spec, "hconcat"))
+      selectors.push(...getSelectorsFromCombinedChart(spec, "vconcat"))
       return selectors
     }
 
     if (this.props.widgetMgr && this.props.element.id) {
-      var that = this
-      getSelectors(spec).forEach(function(item, _) {
+      getSelectors(spec).forEach((item, _index) => {
         view.addSignalListener(
           item,
           debounce(150, (name: string, value: any) => {
             const updatedSelections = {
-              ...that.state.selections,
+              ...this.state.selections,
               [name]: value,
             }
-            that.setState({
+            this.setState({
               selections: updatedSelections,
             })
 
-            that.props.widgetMgr?.setJsonValue(
-              that.props.element as WidgetInfo,
+            this.props.widgetMgr?.setJsonValue(
+              this.props.element as WidgetInfo,
               updatedSelections,
               {
                 fromUi: true,
