@@ -146,6 +146,8 @@ class TextWidgetsMixin:
         text_input_proto.label = label
         text_input_proto.default = str(value)
         text_input_proto.form_id = current_form_id(self.dg)
+        if ctx and ctx.current_group_id:
+            text_input_proto.group_id = ctx.current_group_id
 
         if help is not None:
             text_input_proto.help = dedent(help)

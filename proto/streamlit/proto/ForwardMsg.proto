@@ -45,6 +45,8 @@ message ForwardMsg {
 
     // Script was interrupted by rerun
     FINISHED_EARLY_FOR_RERUN = 2;
+
+    FINISHED_GROUP_RUN_SUCCESSFULLY = 3;
   }
 
   oneof type {

@@ -44,6 +44,7 @@ class RerunData:
     widget_states: Optional[WidgetStates] = None
     page_script_hash: str = ""
     page_name: str = ""
+    group_id: Optional[str] = None
 
 
 @attr.s(auto_attribs=True, slots=True, frozen=True)
@@ -124,6 +125,7 @@ class ScriptRequests:
                         widget_states=coalesced_states,
                         page_script_hash=new_data.page_script_hash,
                         page_name=new_data.page_name,
+                        group_id=new_data.group_id,
                     )
                     return True
 

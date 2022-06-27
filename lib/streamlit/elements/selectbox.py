@@ -146,6 +146,9 @@ class SelectboxMixin:
         selectbox_proto.default = index
         selectbox_proto.options[:] = [str(format_func(option)) for option in opt]
         selectbox_proto.form_id = current_form_id(self.dg)
+        if ctx and ctx.current_group_id:
+            selectbox_proto.group_id = ctx.current_group_id
+
         if help is not None:
             selectbox_proto.help = dedent(help)
 
@@ -179,6 +182,7 @@ class SelectboxMixin:
             selectbox_proto.set_value = True
 
         self.dg._enqueue("selectbox", selectbox_proto)
+        print("selectbox delta path", self.dg._get_delta_path_str())
         return cast(str, current_value)
 
     @property

@@ -55,13 +55,16 @@ from importlib_metadata import version as _version
 
 __version__: str = _version("streamlit")
 
-from typing import Any, Dict, Iterator, List, NoReturn
+from typing import Any, Dict, Iterator, List, NoReturn, Callable
 import contextlib as _contextlib
 import sys as _sys
 import threading as _threading
 import urllib.parse as _parse
-
+from functools import wraps
+import hashlib
+import cloudpickle
 import click as _click
+import pickle
 
 from streamlit import code_util as _code_util
 from streamlit import env_util as _env_util
@@ -533,3 +536,39 @@ def experimental_rerun() -> NoReturn:
             page_script_hash=page_script_hash,
         )
     )
+
+
+def group(callable: Callable) -> Callable:
+    h = hashlib.new("md5")
+    # TODO: find something better to hash
+    h.update(f"{callable.__module__}.{callable.__qualname__}".encode("utf-8"))
+    group_id = h.hexdigest()
+    if "st_groups" not in session_state:
+        session_state.st_groups = {}
+
+
+    @wraps(callable)
+    def wrap(*args, **kwargs):
+        ctx = _get_script_run_ctx()
+        if ctx is None:
+            return
+        dg_stack = ctx.dg_stack
+
+        def wrapped_group():
+            print("Start function")
+            import streamlit as st
+            ctx = st._get_script_run_ctx()
+            ctx.dg_stack = dg_stack
+            # Set dg stack to outside state
+            print(type(ctx.dg_stack))
+            print(ctx.dg_stack)
+            ctx.current_group_id = group_id
+
+            result = callable(*args, **kwargs)
+
+            # TODO: always reset to None -> otherwise problems with exceptions
+            ctx.current_group_id = None
+            return result
+        session_state.st_groups[group_id] = cloudpickle.dumps(wrapped_group)
+        return wrapped_group()
+    return wrap

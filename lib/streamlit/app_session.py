@@ -17,6 +17,7 @@ import threading
 import uuid
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, Dict, Optional, List, Union
+from regex import E
 
 from streamlit.uploaded_file_manager import UploadedFileManager
 
@@ -270,6 +271,7 @@ class AppSession:
                 client_state.widget_states,
                 client_state.page_script_hash,
                 client_state.page_name,
+                client_state.group_id,
             )
         else:
             rerun_data = RerunData()
@@ -452,18 +454,25 @@ class AppSession:
         elif (
             event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
             or event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_COMPILE_ERROR
+            or event == ScriptRunnerEvent.GROUP_RUN_STOPPED_WITH_SUCCESS
         ):
 
             if self._state != AppSessionState.SHUTDOWN_REQUESTED:
                 self._state = AppSessionState.APP_NOT_RUNNING
 
-            script_succeeded = event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
+            script_succeeded = event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS or event == ScriptRunnerEvent.GROUP_RUN_STOPPED_WITH_SUCCESS
+
+            if  event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS:
+                status = ForwardMsg.FINISHED_SUCCESSFULLY
+            elif  event == ScriptRunnerEvent.GROUP_RUN_STOPPED_WITH_SUCCESS:
+                status = ForwardMsg.FINISHED_GROUP_RUN_SUCCESSFULLY
+            else:
+                status = ForwardMsg.FINISHED_WITH_COMPILE_ERROR
 
             script_finished_msg = self._create_script_finished_message(
-                ForwardMsg.FINISHED_SUCCESSFULLY
-                if script_succeeded
-                else ForwardMsg.FINISHED_WITH_COMPILE_ERROR
+                status
             )
+
             self._enqueue_forward_msg(script_finished_msg)
 
             if script_succeeded:

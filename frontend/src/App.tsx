@@ -813,7 +813,9 @@ export class App extends PureComponent<Props, State> {
   handleScriptFinished(status: ForwardMsg.ScriptFinishedStatus): void {
     if (
       status === ForwardMsg.ScriptFinishedStatus.FINISHED_SUCCESSFULLY ||
-      status === ForwardMsg.ScriptFinishedStatus.FINISHED_EARLY_FOR_RERUN
+      status === ForwardMsg.ScriptFinishedStatus.FINISHED_EARLY_FOR_RERUN ||
+      status ===
+        ForwardMsg.ScriptFinishedStatus.FINISHED_GROUP_RUN_SUCCESSFULLY
     ) {
       const successful =
         status === ForwardMsg.ScriptFinishedStatus.FINISHED_SUCCESSFULLY
@@ -1008,11 +1010,12 @@ export class App extends PureComponent<Props, State> {
   }
 
   onPageChange = (pageScriptHash: string): void => {
-    this.sendRerunBackMsg(undefined, pageScriptHash)
+    this.sendRerunBackMsg(undefined, undefined, pageScriptHash)
   }
 
   sendRerunBackMsg = (
     widgetStates?: WidgetStates,
+    groupId?: string,
     pageScriptHash?: string
   ): void => {
     const baseUriParts = this.getBaseUriParts()
@@ -1068,7 +1071,13 @@ export class App extends PureComponent<Props, State> {
 
     this.sendBackMsg(
       new BackMsg({
-        rerunScript: { queryString, widgetStates, pageScriptHash, pageName },
+        rerunScript: {
+          queryString,
+          widgetStates,
+          pageScriptHash,
+          pageName,
+          groupId,
+        },
       })
     )
 

@@ -300,6 +300,12 @@ class DeltaGenerator(
         """
         return self._parent._main_dg if self._parent else self
 
+    def __getstate__(self):
+        return self.__dict__
+
+    def __setstate__(self, d):
+        self.__dict__ = d
+
     def __getattr__(self, name: str) -> Callable[..., NoReturn]:
         import streamlit as st
 
@@ -326,6 +332,7 @@ class DeltaGenerator(
                 }
 
             raise StreamlitAPIException(message)
+
 
         return wrapper
 

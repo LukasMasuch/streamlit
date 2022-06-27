@@ -28,4 +28,5 @@ message Button {
   // the button is pressed.
   bool is_form_submitter = 6;
   bool disabled = 7;
+  string group_id = 8;
 }

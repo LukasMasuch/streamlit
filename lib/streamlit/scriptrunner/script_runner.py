@@ -19,7 +19,8 @@ import types
 from contextlib import contextmanager
 from enum import Enum
 from typing import Dict, Optional, Callable
-
+import cloudpickle
+import pickle
 from blinker import Signal
 
 from streamlit import config
@@ -37,6 +38,7 @@ from streamlit.state import (
     SCRIPT_RUN_WITHOUT_ERRORS_KEY,
     SafeSessionState,
 )
+from streamlit.state import SessionStateProxy
 from streamlit.uploaded_file_manager import UploadedFileManager
 from .script_run_context import ScriptRunContext, add_script_run_ctx, get_script_run_ctx
 from .script_requests import (
@@ -63,6 +65,8 @@ class ScriptRunnerEvent(Enum):
 
     # The script run stopped in order to start a script run with newer widget state.
     SCRIPT_STOPPED_FOR_RERUN = "SCRIPT_STOPPED_FOR_RERUN"
+
+    GROUP_RUN_STOPPED_WITH_SUCCESS = "GROUP_RUN_STOPPED_WITH_SUCCESS"
 
     # The ScriptRunner is done processing the ScriptEventQueue and
     # is shut down.
@@ -520,7 +524,7 @@ class ScriptRunner:
         # This will be set to a RerunData instance if our execution
         # is interrupted by a RerunException.
         rerun_exception_data: Optional[RerunData] = None
-
+        group_run = False
         try:
             # Create fake module. This gives us a name global namespace to
             # execute the code in.
@@ -554,7 +558,15 @@ class ScriptRunner:
                     self._session_state.on_script_will_rerun(rerun_data.widget_states)
 
                 ctx.on_script_start()
-                exec(code, module.__dict__)
+                session_state = SessionStateProxy()
+                if rerun_data.group_id and "st_groups" in session_state and rerun_data.group_id in session_state.st_groups:
+                    group_func = cloudpickle.loads(session_state.st_groups[rerun_data.group_id])
+                    # Load dg stack
+                    # ctx.dg_stack = cloudpickle.loads(session_state.st_groups[rerun_data.group_id][1])
+                    group_func()
+                    group_run = True
+                else:
+                    exec(code, module.__dict__)
                 self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = True
         except RerunException as e:
             rerun_exception_data = e.rerun_data
@@ -569,6 +581,10 @@ class ScriptRunner:
         finally:
             if rerun_exception_data:
                 finished_event = ScriptRunnerEvent.SCRIPT_STOPPED_FOR_RERUN
+            elif group_run:
+                print("GROUP RUN FINISHED")
+                # Temp: use own event. This prevent the cleanup of other elements outside the group
+                finished_event = ScriptRunnerEvent.GROUP_RUN_STOPPED_WITH_SUCCESS
             else:
                 finished_event = ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
             self._on_script_finished(ctx, finished_event)
@@ -591,6 +607,7 @@ class ScriptRunner:
 
         # Signal that the script has finished. (We use SCRIPT_STOPPED_WITH_SUCCESS
         # even if we were stopped with an exception.)
+        print("EVENT", event)
         self.on_event.send(self, event=event)
 
         # Delete expired files now that the script has run and files in use

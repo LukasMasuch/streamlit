@@ -331,6 +331,9 @@ class ButtonMixin:
         button_proto.default = False
         button_proto.is_form_submitter = is_form_submitter
         button_proto.form_id = current_form_id(self.dg)
+        if ctx and ctx.current_group_id:
+            button_proto.group_id = ctx.current_group_id
+
         if help is not None:
             button_proto.help = dedent(help)
 
