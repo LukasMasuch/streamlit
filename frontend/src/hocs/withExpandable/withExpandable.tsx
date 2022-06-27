@@ -165,7 +165,12 @@ function withExpandable(
           }}
         >
           <Panel title={label} key="panel">
-            <WrappedComponent {...componentProps} disabled={widgetsDisabled} />
+            <WrappedComponent
+              {...{
+                ...componentProps,
+                widgetsDisabled,
+              }}
+            />
           </Panel>
         </Accordion>
       </StyledExpandableContainer>
