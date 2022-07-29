@@ -11,21 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 import threading
 from typing import Any, Mapping, Optional
-
 import toml
 from blinker import Signal
-
 import streamlit as st
 import streamlit.watcher.path_watcher
 from streamlit.logger import get_logger
-
 LOGGER = get_logger(__name__)
 SECRETS_FILE_LOC = os.path.abspath(os.path.join(".", ".streamlit", "secrets.toml"))
-
 
 def _missing_attr_error_message(attr_name: str) -> str:
     return (
@@ -39,8 +34,7 @@ def _missing_key_error_message(key: str) -> str:
     return (
         f'st.secrets has no key "{key}". '
         f"Did you forget to add it to secrets.toml or the app settings on Streamlit Cloud? "
-        f"More info: https://docs.streamlit.io/streamlit-cloud/get-started/deploy-an-app/connect-to-data-sources/secrets-management"
-    )
+        f"More info: https://docs.streamlit.io/streamlit-cloud/get-started/deploy-an-app/connect-to-data-sources/secrets-management")
 
 
 class AttrDict(dict):  # type: ignore[type-arg]
