@@ -22,7 +22,7 @@ echo "Script executed from: ${PWD}" >> formatted.txt
 
 
 # Black is not installed
-if command -n "black" > /dev/null; then
+if ! command -v "black" > /dev/null; then
   cd lib
   pipenv shell
   cd ..
