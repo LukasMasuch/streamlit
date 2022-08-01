@@ -28,6 +28,8 @@ from streamlit.credentials import Credentials
 from streamlit.in_memory_file_manager import in_memory_file_manager
 from streamlit.logger import get_logger
 from streamlit.metrics_util import Installation
+
+
 from streamlit.proto.ClientState_pb2 import ClientState
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.proto.GitInfo_pb2 import GitInfo
@@ -76,8 +78,7 @@ class AppSession:
 
     def __init__(
         self,
-        event_loop: AbstractEventLoop,
-        session_data: SessionData,
+        event_loop: AbstractEventLoop, session_data: SessionData,
         uploaded_file_manager: UploadedFileManager,
         message_enqueued_callback: Optional[Callable[[], None]],
         local_sources_watcher: LocalSourcesWatcher,
