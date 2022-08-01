@@ -25,7 +25,7 @@ echo "Script executed from: ${PWD}" >> formatted.txt
 if ! command -v "black" > /dev/null; then
   echo "Black not installed" >> formatted-black.txt
   cd lib
-  $(pipenv --venv)/bin/activate
+  $(pipenv --venv)/bin/activate >> test.2.txt
   cd ..
 fi
 
