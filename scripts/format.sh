@@ -19,6 +19,7 @@ yarn --cwd "frontend" pretty-quick --staged
 
 echo "Script executed from: ${PWD}" >> formatted.txt
 
+
 # If Black is installed, run it on the staged files.  (Black requires
 # Python 3.6+, but you can reformat Python 2 code with it).
 # "--diff-filter=ACMR" only lists files that are [A]dded, [C]opied, [M]odified,
