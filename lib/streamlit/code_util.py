@@ -49,11 +49,14 @@ def extract_args(line):
         elif c == ")":
             stack -= 1
             if stack == 0:
-                results.append(line[startIndex:i])
+                results.append(
+                    line[startIndex:i]
+                    )
     return results
 
 
-def get_method_args_from_code(args, line):
+def get_method_args_from_code(args, 
+        line):
     """Parse arguments from a stringified arguments list inside parentheses
 
     Parameters
@@ -85,3 +88,4 @@ def get_method_args_from_code(args, line):
     else:
         inputs = [line_args]
     return inputs
+
