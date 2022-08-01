@@ -17,7 +17,7 @@ until [ -d .git ]; do cd ..; done
 # Run Prettier on the staged files
 yarn --cwd "frontend" pretty-quick --staged
 
-echo "Script executed from: ${PWD}" > formatted.txt
+echo "Script executed from: ${PWD}" >> formatted.txt
 
 # If Black is installed, run it on the staged files.  (Black requires
 # Python 3.6+, but you can reformat Python 2 code with it).
@@ -26,6 +26,7 @@ echo "Script executed from: ${PWD}" > formatted.txt
 if command -v "black" > /dev/null; then
   changed_files=$(git diff --diff-filter=ACMR --name-only --cached | grep -E "\.pyi?$")
   if [ $changed_files ]; then
+    echo "black formatting files $changed_files" >> formatted-black.txt
     black $changed_files
   fi
 fi
