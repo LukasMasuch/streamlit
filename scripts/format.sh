@@ -17,7 +17,7 @@ until [ -d .git ]; do cd ..; done
 # Run Prettier on the staged files
 yarn --cwd "frontend" pretty-quick --staged
 
-echo 'PWD is: ${pwd}' > formatted.txt
+echo "Script executed from: ${PWD}" > formatted.txt
 
 # If Black is installed, run it on the staged files.  (Black requires
 # Python 3.6+, but you can reformat Python 2 code with it).
