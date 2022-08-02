@@ -284,6 +284,7 @@ export class App extends PureComponent<Props, State> {
   }
 
   componentDidMount(): void {
+    ;(window as any).prerenderReady = false
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.connectionManager = new ConnectionManager({
@@ -843,6 +844,7 @@ export class App extends PureComponent<Props, State> {
       status === ForwardMsg.ScriptFinishedStatus.FINISHED_SUCCESSFULLY ||
       status === ForwardMsg.ScriptFinishedStatus.FINISHED_EARLY_FOR_RERUN
     ) {
+      ;(window as any).prerenderReady = true
       const successful =
         status === ForwardMsg.ScriptFinishedStatus.FINISHED_SUCCESSFULLY
       // Notify any subscribers of this event (and do it on the next cycle of
