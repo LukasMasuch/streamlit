@@ -14,6 +14,11 @@
 
 import json
 import os
+from dataclasses import dataclass, asdict
+from typing import (
+    Dict,
+    Optional,
+)
 
 import tornado.web
 from urllib.parse import quote, unquote_plus
@@ -27,6 +32,61 @@ from streamlit.in_memory_file_manager import in_memory_file_manager
 from streamlit.in_memory_file_manager import FILE_TYPE_DOWNLOADABLE
 
 LOGGER = get_logger(__name__)
+
+
+@dataclass
+class PageMetadata:
+    """ """
+
+    title: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+_metadata_per_page: Dict[str, PageMetadata] = {
+    "main": PageMetadata(
+        title="Streamlit App",
+        description="Streamlit is the fastest way to build and share data apps. Deploy for free on our Community Cloud.",
+        image_url="https://streamlit.io/sharing-image-facebook.jpg",
+    ),
+}
+
+
+def update_page_metadata(
+    page: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    image_url: Optional[str] = None,
+) -> None:
+    page_metadata = PageMetadata()
+
+    if page in _metadata_per_page:
+        page_metadata = _metadata_per_page[page]
+
+    if title is not None:
+        page_metadata.title = title
+
+    if description is not None:
+        page_metadata.description = description
+
+    if image_url is not None:
+        page_metadata.image_url = image_url
+
+    _metadata_per_page[page] = page_metadata
+
+
+def get_page_metadata(page: Optional[str] = None) -> PageMetadata:
+    main_page = _metadata_per_page["main"]
+    if page and page in _metadata_per_page:
+        sub_page = _metadata_per_page[page]
+        if sub_page.title is None:
+            sub_page.title = main_page.title
+        if sub_page.description is None:
+            sub_page.description = main_page.description
+        if sub_page.image_url is None:
+            sub_page.image_url = main_page.image_url
+        return sub_page
+    return main_page
 
 
 def allow_cross_origin_requests():
@@ -275,6 +335,18 @@ class DebugHandler(_SpecialRequestHandler):
         self.write(
             "<code><pre>%s</pre><code>" % json.dumps(self._server.get_debug(), indent=2)
         )
+
+
+class AppMetadataHandler(_SpecialRequestHandler):
+    def initialize(self, server):
+        self._server = server
+
+    def get(self):
+        self.add_header("Cache-Control", "no-cache")
+        page_hash = self.get_argument("page", None)
+        if not page_hash:
+            page_hash = None
+        self.write(json.dumps(asdict(get_page_metadata(page_hash))))
 
 
 class MessageCacheHandler(tornado.web.RequestHandler):

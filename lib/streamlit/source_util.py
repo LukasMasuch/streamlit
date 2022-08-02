@@ -111,6 +111,7 @@ def page_name_and_icon(script_path: Path) -> Tuple[str, str]:
     return str(name), icon
 
 
+_main_page_hash = None
 _pages_cache_lock = threading.RLock()
 _cached_pages: Optional[Dict[str, Dict[str, str]]] = None
 _on_pages_changed = Signal(doc="Emitted when the pages directory is changed")
@@ -128,6 +129,7 @@ def invalidate_pages_cache():
 
 def get_pages(main_script_path_str: str) -> Dict[str, Dict[str, str]]:
     global _cached_pages
+    global _main_page_hash
 
     # Avoid taking the lock if the pages cache hasn't been invalidated.
     pages = _cached_pages
@@ -143,6 +145,7 @@ def get_pages(main_script_path_str: str) -> Dict[str, Dict[str, str]]:
         main_script_path = Path(main_script_path_str)
         main_page_name, main_page_icon = page_name_and_icon(main_script_path)
         main_page_script_hash = calc_md5(main_script_path_str)
+        _main_page_hash = main_page_script_hash
 
         # NOTE: We include the page_script_hash in the dict even though it is
         #       already used as the key because that occasionally makes things

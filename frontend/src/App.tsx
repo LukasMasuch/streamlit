@@ -23,6 +23,11 @@ import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
 // Other local imports.
+import {
+  buildHttpUri,
+  getPossibleBaseUris,
+  BaseUriParts,
+} from "src/lib/UriUtil"
 import AppContext from "src/components/core/AppContext"
 import AppView from "src/components/core/AppView"
 import StatusWidget from "src/components/core/StatusWidget"
@@ -51,7 +56,6 @@ import {
   notUndefined,
   getElementWidgetID,
 } from "src/lib/utils"
-import { BaseUriParts } from "src/lib/UriUtil"
 import {
   BackMsg,
   CustomThemeConfig,
@@ -74,6 +78,7 @@ import {
   AppPage,
 } from "src/autogen/proto"
 import { without, concat } from "lodash"
+import { Helmet } from "react-helmet"
 
 import { RERUN_PROMPT_MODAL_DIALOG } from "src/lib/baseconsts"
 import { SessionInfo } from "src/lib/SessionInfo"
@@ -145,6 +150,9 @@ interface State {
   hideSidebarNav: boolean
   appPages: IAppPage[]
   currentPageScriptHash: string
+  metaTitle: string | null
+  metaDescription: string | null
+  metaImage: string | null
 }
 
 const ELEMENT_LIST_BUFFER_TIMEOUT_MS = 10
@@ -219,6 +227,9 @@ export class App extends PureComponent<Props, State> {
       // true as well for consistency.
       hideTopBar: true,
       hideSidebarNav: true,
+      metaTitle: null,
+      metaDescription: null,
+      metaImage: null,
     }
 
     this.sessionEventDispatcher = new SessionEventDispatcher()
@@ -291,6 +302,23 @@ export class App extends PureComponent<Props, State> {
     })
 
     MetricsManager.current.enqueue("viewReport")
+
+    for (const baseUriPart of getPossibleBaseUris()) {
+      fetch(buildHttpUri(baseUriPart, "metadata"))
+        .then(res => res.json())
+        .then(json => {
+          if (json.title) {
+            document.title = json.title
+            this.setState({ metaTitle: json.title })
+          }
+          if (json.description) {
+            this.setState({ metaDescription: json.description })
+          }
+          if (json.image_url) {
+            this.setState({ metaImage: json.image_url })
+          }
+        })
+    }
   }
 
   componentDidUpdate(prevProps: Readonly<Props>): void {
@@ -1251,6 +1279,9 @@ export class App extends PureComponent<Props, State> {
       hideTopBar,
       hideSidebarNav,
       currentPageScriptHash,
+      metaTitle,
+      metaDescription,
+      metaImage,
     } = this.state
 
     const {
@@ -1299,6 +1330,32 @@ export class App extends PureComponent<Props, State> {
           attach={window}
           focused={true}
         >
+          {metaTitle && (
+            <Helmet>
+              <meta name="title" content={metaTitle} />
+              <meta property="og:title" content={metaTitle} />
+              <meta property="twitter:title" content={metaTitle} />
+              <meta property="og:type" content="website" />
+            </Helmet>
+          )}
+          {metaDescription && (
+            <Helmet>
+              <meta name="description" content={metaDescription} />
+              <meta property="og:description" content={metaDescription} />
+              <meta property="twitter:description" content={metaDescription} />
+            </Helmet>
+          )}
+          {metaImage && (
+            <Helmet>
+              <meta property="og:image" content={metaImage} />
+              <meta property="twitter:image" content={metaImage} />
+              <meta property="twitter:card" content="summary_large_image" />
+            </Helmet>
+          )}
+
+          {/* <meta property="og:url" content="https://metatags.io/" />
+          <meta property="twitter:url" content="https://metatags.io/" /> */}
+
           <StyledApp className={outerDivClass}>
             {/* The tabindex below is required for testing. */}
             <Header>

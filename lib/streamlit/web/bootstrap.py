@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import contextlib
 import os
 import signal
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import requests
 
 import click
 
@@ -33,7 +35,7 @@ from streamlit.logger import get_logger
 from streamlit.secrets import SECRETS_FILE_LOC
 from streamlit.source_util import invalidate_pages_cache
 from streamlit.watcher import report_watchdog_availability, watch_dir, watch_file
-from streamlit.web.server import Server, server_address_is_unix_socket
+from streamlit.web.server import Server, server_address_is_unix_socket, routes
 from streamlit.web.server import server_util
 
 LOGGER = get_logger(__name__)
@@ -289,6 +291,36 @@ def _maybe_print_old_git_warning(main_script_path: str) -> None:
             fg="yellow",
         )
         click.secho("  To enable this feature, please update Git.", fg="yellow")
+    elif repo.is_valid():
+        repo_info = repo.get_repo_info()
+        if repo_info is None:
+            return
+
+        repository_name, _, _ = repo_info
+
+        import requests
+        import re
+        # META_TITLE_RE = re.compile(r'<meta name="title" content="(.+?)".+?>')
+        # META_DESC_RE = re.compile(r'<meta name="description" content="(.+?)".+?>')
+        # META_OG_TITLE_RE = re.compile(r'<meta property="og:title" content="(.+?)".+?>')
+        META_OG_IMAGE_RE = re.compile(r'<meta property="og:image" content="(.+?)".*?>')
+        META_OG_DESC_RE = re.compile(
+            r'<meta property="og:description" content="(.+?)".*?>'
+        )
+
+        with contextlib.suppress(Exception):
+            response = requests.get(f"https://github.com/{repository_name}")
+            if response.status_code == 200:
+                if page_content := str(response.content):
+                    if og_description := META_OG_DESC_RE.findall(page_content)[0]:
+                        description = og_description.split("- GitHub")[0].strip()
+                        routes.update_page_metadata("main", description=description)
+
+                    if og_image := META_OG_IMAGE_RE.findall(page_content)[0]:
+                        routes.update_page_metadata("main", image_url=og_image)
+
+                    title = repository_name.split("/")[1] + " | A Streamlit App"
+                    routes.update_page_metadata("main", title=title)
 
 
 def load_config_options(flag_options: Dict[str, Any]) -> None:

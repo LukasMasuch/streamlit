@@ -20,6 +20,7 @@ import socket
 import sys
 import time
 import traceback
+
 from enum import Enum
 from typing import (
     Any,
@@ -61,7 +62,7 @@ from streamlit.state import (
 from streamlit.stats import StatsManager
 from streamlit.uploaded_file_manager import UploadedFileManager
 from streamlit.watcher import LocalSourcesWatcher
-from streamlit.web.server.routes import AddSlashHandler
+from streamlit.web.server.routes import AddSlashHandler, AppMetadataHandler
 from streamlit.web.server.routes import AssetsFileHandler
 from streamlit.web.server.routes import DebugHandler
 from streamlit.web.server.routes import HealthHandler
@@ -329,6 +330,11 @@ class Server:
                 make_url_path_regex(base, "message"),
                 MessageCacheHandler,
                 dict(cache=self._message_cache),
+            ),
+            (
+                make_url_path_regex(base, "metadata"),
+                AppMetadataHandler,
+                dict(server=self),
             ),
             (
                 make_url_path_regex(base, "st-metrics"),

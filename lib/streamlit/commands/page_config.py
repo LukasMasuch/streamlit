@@ -24,6 +24,8 @@ from streamlit.proto.PageConfig_pb2 import PageConfig as PageConfigProto
 from streamlit.elements import image
 from streamlit.errors import StreamlitAPIException
 from streamlit.util import lower_clean_dict_keys
+from streamlit.web.server import routes
+from streamlit import source_util
 
 if TYPE_CHECKING:
     from typing_extensions import TypeGuard
@@ -48,6 +50,7 @@ def set_page_config(
     layout: Layout = "centered",
     initial_sidebar_state: InitialSideBarState = "auto",
     menu_items: Optional[MenuItems] = None,
+    page_description: Optional[str] = None,
 ) -> None:
     """
     Configures the default settings of the page.
@@ -160,6 +163,22 @@ def set_page_config(
     ctx = get_script_run_ctx()
     if ctx is None:
         return
+    page = ctx.page_script_hash
+    if not page or source_util._main_page_hash == page:
+        page = "main"
+
+    if page_title:
+        routes.update_page_metadata(
+            page,
+            title=page_title,
+        )
+
+    if page_description:
+        routes.update_page_metadata(
+            page,
+            description=page_description,
+        )
+
     ctx.enqueue(msg)
 
 
