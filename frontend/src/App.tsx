@@ -304,22 +304,23 @@ export class App extends PureComponent<Props, State> {
 
     MetricsManager.current.enqueue("viewReport")
 
-    for (const baseUriPart of getPossibleBaseUris()) {
-      fetch(buildHttpUri(baseUriPart, "metadata"))
-        .then(res => res.json())
-        .then(json => {
-          if (json.title) {
-            document.title = json.title
-            this.setState({ metaTitle: json.title })
-          }
-          if (json.description) {
-            this.setState({ metaDescription: json.description })
-          }
-          if (json.image_url) {
-            this.setState({ metaImage: json.image_url })
-          }
-        })
-    }
+    // TODO: Do not dynamically fetch the data, social preview bots will not execute Javascript
+    // for (const baseUriPart of getPossibleBaseUris()) {
+    //   fetch(buildHttpUri(baseUriPart, "metadata"))
+    //     .then(res => res.json())
+    //     .then(json => {
+    //       if (json.title) {
+    //         document.title = json.title
+    //         this.setState({ metaTitle: json.title })
+    //       }
+    //       if (json.description) {
+    //         this.setState({ metaDescription: json.description })
+    //       }
+    //       if (json.image_url) {
+    //         this.setState({ metaImage: json.image_url })
+    //       }
+    //     })
+    // }
   }
 
   componentDidUpdate(prevProps: Readonly<Props>): void {

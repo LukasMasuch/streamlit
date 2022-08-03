@@ -164,8 +164,6 @@ def set_page_config(
     if ctx is None:
         return
     page = ctx.page_script_hash
-    if not page or source_util._main_page_hash == page:
-        page = "main"
 
     if page_title:
         routes.update_page_metadata(

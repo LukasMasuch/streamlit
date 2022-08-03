@@ -312,6 +312,7 @@ class Server:
 
     def _create_app(self) -> tornado.web.Application:
         """Create our tornado web app."""
+
         base = config.get_option("server.baseUrlPath")
 
         routes: List[Any] = [
@@ -390,14 +391,9 @@ class Server:
                         {
                             "path": "%s/" % static_path,
                             "default_filename": "index.html",
-                            "get_pages": lambda: set(
-                                [
-                                    page_info["page_name"]
-                                    for page_info in source_util.get_pages(
-                                        self.main_script_path
-                                    ).values()
-                                ]
-                            ),
+                            "get_pages": lambda: source_util.get_pages(
+                                self.main_script_path
+                            ).values(),
                         },
                     ),
                     (make_url_path_regex(base, trailing_slash=False), AddSlashHandler),

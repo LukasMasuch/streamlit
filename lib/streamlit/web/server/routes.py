@@ -30,6 +30,7 @@ from streamlit.string_util import generate_download_filename_from_title
 from streamlit.in_memory_file_manager import _get_extension_for_mimetype
 from streamlit.in_memory_file_manager import in_memory_file_manager
 from streamlit.in_memory_file_manager import FILE_TYPE_DOWNLOADABLE
+from streamlit import source_util
 
 LOGGER = get_logger(__name__)
 
@@ -58,6 +59,9 @@ def update_page_metadata(
     description: Optional[str] = None,
     image_url: Optional[str] = None,
 ) -> None:
+    if not page or source_util._main_page_hash == page:
+        page = "main"
+
     page_metadata = PageMetadata()
 
     if page in _metadata_per_page:
@@ -76,8 +80,11 @@ def update_page_metadata(
 
 
 def get_page_metadata(page: Optional[str] = None) -> PageMetadata:
+    if not page or source_util._main_page_hash == page:
+        page = "main"
+
     main_page = _metadata_per_page["main"]
-    if page and page in _metadata_per_page:
+    if page and page != "main" and page in _metadata_per_page:
         sub_page = _metadata_per_page[page]
         if sub_page.title is None:
             sub_page.title = main_page.title
@@ -104,8 +111,11 @@ def allow_cross_origin_requests():
 
 class StaticFileHandler(tornado.web.StaticFileHandler):
     def initialize(self, path, default_filename, get_pages):
-        self._pages = get_pages()
+        self._pages = {
+            page["page_name"]: page["page_script_hash"] for page in get_pages()
+        }
 
+        self._last_page_update = {}
         super().initialize(path=path, default_filename=default_filename)
 
     def set_extra_headers(self, path):
@@ -121,7 +131,68 @@ class StaticFileHandler(tornado.web.StaticFileHandler):
         else:
             self.set_header("Cache-Control", "public")
 
+    def _prepare_page_index(self, page_script_hash: str) -> str:
+
+        page_index_name = f"index.{page_script_hash}.html"
+        page_index_path = self.get_absolute_path(self.root, page_index_name)
+        main_index_path = self.get_absolute_path(self.root, "index.html")
+
+        page_metadata = get_page_metadata(page_script_hash)
+        print(page_script_hash, flush=True)
+        print(_metadata_per_page, flush=True)
+
+        METATAGS_SECTION = ""
+
+        # TODO add some escaping so that people cannot add <script> tags here:
+        if page_metadata.title:
+            METATAGS_SECTION += (
+                f"<title>Streamlit</title>\n"
+                f'<meta name="title" content="{page_metadata.title}" />\n'
+                f'<meta property="og:title" content="{page_metadata.title}" />\n'
+                f'<meta property="twitter:title" content="{page_metadata.title}" />\n'
+                f'<meta property="og:type" content="website" />\n'
+            )
+
+        if page_metadata.description:
+            METATAGS_SECTION += (
+                f'<meta name="description" content="{page_metadata.description}" />\n'
+                f'<meta property="og:description" content="{page_metadata.description}" />\n'
+                f'<meta property="twitter:description" content="{page_metadata.description}" />\n'
+            )
+
+        if page_metadata.image_url:
+            METATAGS_SECTION += (
+                f'<meta property="og:image" content="{page_metadata.image_url}" />\n'
+                f'<meta property="twitter:image" content="{page_metadata.image_url}" />\n'
+                f'<meta property="twitter:card" content="summary_large_image" />\n'
+            )
+
+        if (
+            page_script_hash in self._last_page_update
+            and self._last_page_update[page_script_hash] == METATAGS_SECTION
+            and os.path.exists(page_index_path)
+        ):
+            # This page is already up to date.
+            return page_index_name
+
+        with open(main_index_path, "r") as file:
+            main_index_content = file.read()
+
+        page_index_content = main_index_content.replace(
+            "<title>Streamlit</title>", METATAGS_SECTION
+        )
+
+        with open(page_index_path, "w") as file:
+            file.write(page_index_content)
+
+        self._last_page_update[page_script_hash] = METATAGS_SECTION
+        return page_index_name
+
     def parse_url_path(self, url_path: str) -> str:
+        print("URL", url_path, flush=True)
+        if not url_path and source_util._main_page_hash is not None:
+            return self._prepare_page_index(source_util._main_page_hash)
+
         url_parts = url_path.split("/")
 
         maybe_page_name = url_parts[0]
@@ -138,7 +209,8 @@ class StaticFileHandler(tornado.web.StaticFileHandler):
             #   * adds a trailing '/' to the URL appearing in the browser, which
             #     looks bad
             if len(url_parts) == 1:
-                return "index.html"
+                page_script_hash = self._pages[maybe_page_name]
+                return self._prepare_page_index(page_script_hash)
 
             url_path = "/".join(url_parts[1:])
 
