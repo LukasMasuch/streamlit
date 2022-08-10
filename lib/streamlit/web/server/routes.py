@@ -146,7 +146,7 @@ class StaticFileHandler(tornado.web.StaticFileHandler):
         # TODO add some escaping so that people cannot add <script> tags here:
         if page_metadata.title:
             METATAGS_SECTION += (
-                f"<title>Streamlit</title>\n"
+                f"<title>{page_metadata.title}</title>\n"
                 f'<meta name="title" content="{page_metadata.title}" />\n'
                 f'<meta property="og:title" content="{page_metadata.title}" />\n'
                 f'<meta property="twitter:title" content="{page_metadata.title}" />\n'
