@@ -89,7 +89,7 @@ const Audio = React.lazy(() => import("src/components/elements/Audio/"))
 const Balloons = React.lazy(() => import("src/components/elements/Balloons/"))
 const Snow = React.lazy(() => import("src/components/elements/Snow/"))
 const ArrowDataFrame = React.lazy(() =>
-  import("src/components/elements/ArrowDataFrame/")
+  import("src/components/widgets/DataFrame")
 )
 const ArrowVegaLiteChart = React.lazy(() =>
   import("src/components/elements/ArrowVegaLiteChart/")
@@ -103,9 +103,7 @@ const BokehChart = React.lazy(() =>
 )
 const DebouncedBokehChart = debounceRender(BokehChart, 100)
 
-const DataFrame = React.lazy(() =>
-  import("src/components/elements/DataFrame/")
-)
+const DataFrame = React.lazy(() => import("src/components/elements/DataFrame"))
 const DeckGlJsonChart = React.lazy(() =>
   import("src/components/elements/DeckGlJsonChart/")
 )
@@ -203,6 +201,7 @@ const RawElementNodeRenderer = (
       return (
         <Alert
           width={width}
+          icon={alertProto.icon}
           body={alertProto.body}
           kind={getAlertKind(alertProto.format)}
         />

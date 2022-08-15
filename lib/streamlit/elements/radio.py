@@ -18,9 +18,9 @@ from typing import Any, Callable, Optional, cast
 import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Radio_pb2 import Radio as RadioProto
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.scriptrunner.script_run_context import track_fingerprint
-from streamlit.state import (
+from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,
     WidgetCallback,
@@ -47,6 +47,7 @@ class RadioMixin:
         kwargs: Optional[WidgetKwargs] = None,
         *,  # keyword-only args:
         disabled: bool = False,
+        horizontal: bool = False,
     ) -> Any:
         """Display a radio button widget.
 
@@ -81,6 +82,10 @@ class RadioMixin:
             An optional boolean, which disables the radio button if set to
             True. The default is False. This argument can only be supplied by
             keyword.
+        horizontal : bool
+            An optional boolean, which orients the radio group horizontally.
+            The default is false (vertical buttons). This argument can only
+            be supplied by keyword.
 
         Returns
         -------
@@ -99,7 +104,7 @@ class RadioMixin:
         ...     st.write("You didn\'t select comedy.")
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.radio.py
+           https://doc-radio.streamlitapp.com/
            height: 260px
 
         """
@@ -115,6 +120,7 @@ class RadioMixin:
             args=args,
             kwargs=kwargs,
             disabled=disabled,
+            horizontal=horizontal,
             ctx=ctx,
         )
 
@@ -131,6 +137,7 @@ class RadioMixin:
         kwargs: Optional[WidgetKwargs] = None,
         *,  # keyword-only args:
         disabled: bool = False,
+        horizontal: bool = False,
         ctx: Optional[ScriptRunContext],
     ) -> Any:
         key = to_key(key)
@@ -154,6 +161,7 @@ class RadioMixin:
         radio_proto.default = index
         radio_proto.options[:] = [str(format_func(option)) for option in opt]
         radio_proto.form_id = current_form_id(self.dg)
+        radio_proto.horizontal = horizontal
         if help is not None:
             radio_proto.help = dedent(help)
 
@@ -163,11 +171,11 @@ class RadioMixin:
             return opt[idx] if len(opt) > 0 and opt[idx] is not None else None
 
         def serialize_radio(v):
-            if len(options) == 0:
+            if len(opt) == 0:
                 return 0
-            return index_(options, v)
+            return index_(opt, v)
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "radio",
             radio_proto,
             user_key=key,
@@ -182,12 +190,12 @@ class RadioMixin:
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         radio_proto.disabled = disabled
-        if set_frontend_value:
-            radio_proto.value = serialize_radio(current_value)
+        if widget_state.value_changed:
+            radio_proto.value = serialize_radio(widget_state.value)
             radio_proto.set_value = True
 
         self.dg._enqueue("radio", radio_proto)
-        return cast(str, current_value)
+        return widget_state.value
 
     @property
     def dg(self) -> "streamlit.delta_generator.DeltaGenerator":

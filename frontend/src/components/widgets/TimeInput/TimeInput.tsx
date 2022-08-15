@@ -142,6 +142,54 @@ class TimeInput extends PureComponent<Props, State> {
       Select: {
         props: {
           disabled,
+
+          overrides: {
+            ControlContainer: {
+              style: {
+                // Baseweb requires long-hand props, short-hand leads to weird bugs & warnings.
+                borderLeftWidth: "1px",
+                borderRightWidth: "1px",
+                borderTopWidth: "1px",
+                borderBottomWidth: "1px",
+              },
+            },
+
+            IconsContainer: {
+              style: () => ({
+                paddingRight: ".5rem",
+              }),
+            },
+
+            ValueContainer: {
+              style: () => ({
+                // Baseweb requires long-hand props, short-hand leads to weird bugs & warnings.
+                paddingRight: ".5rem",
+                paddingLeft: ".5rem",
+                paddingBottom: ".5rem",
+                paddingTop: ".5rem",
+              }),
+            },
+
+            Dropdown: {
+              style: () => ({
+                paddingTop: 0,
+                paddingBottom: 0,
+              }),
+            },
+
+            // Nudge the dropdown menu by 1px so the focus state doesn't get cut off
+            Popover: {
+              props: {
+                overrides: {
+                  Body: {
+                    style: () => ({
+                      marginTop: "1px",
+                    }),
+                  },
+                },
+              },
+            },
+          },
         },
       },
     }

@@ -274,6 +274,28 @@ class DateInput extends React.PureComponent<Props, State> {
                 // The default maskChar ` ` causes empty dates to display as ` / / `
                 // Clearing the maskChar so empty dates will not display
                 maskChar: null,
+
+                overrides: {
+                  Root: {
+                    style: {
+                      // Baseweb requires long-hand props, short-hand leads to weird bugs & warnings.
+                      borderLeftWidth: "1px",
+                      borderRightWidth: "1px",
+                      borderTopWidth: "1px",
+                      borderBottomWidth: "1px",
+                    },
+                  },
+
+                  Input: {
+                    style: {
+                      // Baseweb requires long-hand props, short-hand leads to weird bugs & warnings.
+                      paddingRight: ".5rem",
+                      paddingLeft: ".5rem",
+                      paddingBottom: ".5rem",
+                      paddingTop: ".5rem",
+                    },
+                  },
+                },
               },
             },
           }}

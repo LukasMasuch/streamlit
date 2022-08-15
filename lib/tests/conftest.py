@@ -19,6 +19,7 @@ are executed.
 
 from unittest.mock import patch, mock_open
 import os
+import logging
 
 # Do not import any Streamlit modules here! See below for details.
 
@@ -57,8 +58,19 @@ with patch(
     config.get_config_options(force_reparse=True)
 
     # Set source_util._cached_pages to the empty dict below so that
-    # source_util.get_pages behavior is deterministic and doesn't depend on the
+    # source_util.get_pages' behavior is deterministic and doesn't depend on the
     # filesystem of the machine tests are being run on. Tests that need
     # source_util.get_pages to depend on the filesystem can patch this value
     # back to None.
     source_util._cached_pages = {}
+
+
+def pytest_sessionfinish():
+    # We're not waiting for scriptrunner threads to cleanly close before ending the PyTest,
+    # which results in raised exception ValueError: I/O operation on closed file.
+    # This is well known issue in PyTest, check out these discussions for more:
+    # * https://github.com/pytest-dev/pytest/issues/5502
+    # * https://github.com/pytest-dev/pytest/issues/5282
+    # To prevent the exception from being raised on pytest_sessionfinish
+    # we disable exception raising in logging module
+    logging.raiseExceptions = False

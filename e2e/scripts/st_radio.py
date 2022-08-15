@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pandas as pd
 import streamlit as st
 
 options = ("female", "male")
@@ -27,11 +28,18 @@ st.write("value 3:", i3)
 i4 = st.radio("radio 4", options, disabled=True)
 st.write("value 4:", i4)
 
+i5 = st.radio("radio 5", options, horizontal=True)
+st.write("value 5:", i5)
+
+i6 = st.radio("radio 6", pd.DataFrame({"foo": list(options)}))
+st.write("value 6:", i6)
+
+
 if st._is_running_with_streamlit:
 
     def on_change():
         st.session_state.radio_changed = True
 
-    st.radio("radio 5", options, 1, key="radio5", on_change=on_change)
-    st.write("value 5:", st.session_state.radio5)
+    st.radio("radio 7", options, 1, key="radio7", on_change=on_change)
+    st.write("value 7:", st.session_state.radio7)
     st.write("radio changed:", "radio_changed" in st.session_state)

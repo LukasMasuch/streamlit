@@ -16,8 +16,7 @@
 
 import copy
 import json
-from typing import Any, Dict
-from typing import cast
+from typing import Any, Dict, cast
 
 import pandas as pd
 
@@ -68,7 +67,7 @@ class MapMixin:
         >>> st.map(df)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/charts.map.py
+           https://doc-map.streamlitapp.com/
            height: 650px
 
         """
@@ -85,7 +84,6 @@ class MapMixin:
 
 # Map used as the basis for st.map.
 _DEFAULT_MAP = dict(deck_gl_json_chart.EMPTY_MAP)  # type: Dict[str, Any]
-_DEFAULT_MAP["mapStyle"] = "mapbox://styles/mapbox/light-v10"
 
 # Other default parameters for st.map.
 _DEFAULT_COLOR = [200, 30, 0, 160]

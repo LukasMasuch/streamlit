@@ -23,11 +23,13 @@ export const StyledTableContainer = styled.div(({ theme }) => ({
   fontFamily: theme.fonts.sansSerif,
   padding: `${theme.spacing.twoXS} ${theme.spacing.xs}`,
   lineHeight: theme.lineHeights.table,
+  overflow: ["auto", "overlay"],
 }))
 
 export const StyledTable = styled.table(({ theme }) => ({
   width: theme.sizes.full,
   marginBottom: theme.spacing.lg,
+  marginTop: theme.spacing.sm,
   color: theme.colors.bodyText,
   borderCollapse: "collapse",
   border: `1px solid ${theme.colors.fadedText05}`,

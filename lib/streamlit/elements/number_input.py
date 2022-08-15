@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import numbers
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
 from typing import Optional, Union, cast
@@ -22,7 +22,7 @@ import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.js_number import JSNumber, JSNumberBoundsException
 from streamlit.proto.NumberInput_pb2 import NumberInput as NumberInputProto
-from streamlit.state import (
+from streamlit.runtime.state import (
     register_widget,
     NoValue,
     WidgetArgs,
@@ -105,7 +105,7 @@ class NumberInputMixin:
         >>> st.write('The current number is ', number)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.number_input.py
+           https://doc-number-input.streamlitapp.com/
            height: 260px
 
         """
@@ -275,10 +275,12 @@ class NumberInputMixin:
         if format is not None:
             number_input_proto.format = format
 
-        def deserialize_number_input(ui_value, widget_id=""):
-            return ui_value if ui_value is not None else value
+        def deserialize_number_input(
+            ui_value: Optional[Number], widget_id: str = ""
+        ) -> Number:
+            return ui_value if ui_value is not None else cast(Number, value)
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "number_input",
             number_input_proto,
             user_key=key,
@@ -293,12 +295,12 @@ class NumberInputMixin:
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         number_input_proto.disabled = disabled
-        if set_frontend_value:
-            number_input_proto.value = current_value
+        if widget_state.value_changed:
+            number_input_proto.value = widget_state.value
             number_input_proto.set_value = True
 
         self.dg._enqueue("number_input", number_input_proto)
-        return cast(Number, current_value)
+        return widget_state.value
 
     @property
     def dg(self) -> "streamlit.delta_generator.DeltaGenerator":

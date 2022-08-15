@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from textwrap import dedent
-from typing import cast, TYPE_CHECKING, Union
+from typing import cast, TYPE_CHECKING, Union, Optional
 from typing_extensions import TypeAlias, Literal
 
-import attr
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Metric_pb2 import Metric as MetricProto
 from streamlit.scriptrunner.script_run_context import track_fingerprint
@@ -34,10 +34,10 @@ Delta: TypeAlias = Union[float, str, None]
 DeltaColor: TypeAlias = Literal["normal", "inverse", "off"]
 
 
-@attr.s(auto_attribs=True, slots=True, frozen=True)
+@dataclass(frozen=True)
 class MetricColorAndDirection:
-    color: MetricProto.MetricColor.ValueType
-    direction: MetricProto.MetricDirection.ValueType
+    color: "MetricProto.MetricColor.ValueType"
+    direction: "MetricProto.MetricDirection.ValueType"
 
 
 class MetricMixin:
@@ -48,6 +48,7 @@ class MetricMixin:
         value: Value,
         delta: Delta = None,
         delta_color: DeltaColor = "normal",
+        help: Optional[str] = None,
     ) -> "DeltaGenerator":
         """Display a metric in big bold font, with an optional indicator of how the metric changed.
 
@@ -74,13 +75,15 @@ class MetricMixin:
              negative. This is useful when a negative change is considered
              good, e.g. if cost decreased. If "off", delta is  shown in gray
              regardless of its value.
+        help : str
+            An optional tooltip that gets displayed next to the metric label.
 
         Example
         -------
         >>> st.metric(label="Temperature", value="70 °F", delta="1.2 °F")
 
         .. output::
-            https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/metric.example1.py
+            https://doc-metric-example1.streamlitapp.com/
             height: 210px
 
         ``st.metric`` looks especially nice in combination with ``st.columns``:
@@ -91,7 +94,7 @@ class MetricMixin:
         >>> col3.metric("Humidity", "86%", "4%")
 
         .. output::
-            https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/metric.example2.py
+            https://doc-metric-example2.streamlitapp.com/
             height: 210px
 
         The delta indicator color can also be inverted or turned off:
@@ -103,7 +106,7 @@ class MetricMixin:
         ...     delta_color="off")
 
         .. output::
-            https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/metric.example3.py
+            https://doc-metric-example3.streamlitapp.com/
             height: 320px
 
         """
@@ -111,6 +114,8 @@ class MetricMixin:
         metric_proto.body = self.parse_value(value)
         metric_proto.label = self.parse_label(label)
         metric_proto.delta = self.parse_delta(delta)
+        if help is not None:
+            metric_proto.help = dedent(help)
 
         color_and_direction = self.determine_delta_color_and_direction(
             cast(DeltaColor, clean_text(delta_color)), delta

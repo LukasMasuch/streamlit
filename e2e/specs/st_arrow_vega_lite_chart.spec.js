@@ -32,23 +32,20 @@ describe("st._arrow_vega_lite_chart", () => {
     cy.getIndexed("[data-testid='stArrowVegaLiteChart'] canvas", 0).should(
       "have.css",
       "width",
-      "666px"
+      "704px"
     );
 
     cy.getIndexed("[data-testid='stArrowVegaLiteChart'] canvas", 1).should(
       "have.css",
       "width",
-      "666px"
+      "704px"
     );
 
-    cy.getIndexed("[data-testid='stArrowVegaLiteChart'] canvas", 2)
-      .should("have.css", "width")
-      .and(width => {
-        // Tests run on mac expect 282px while running on linux expects 284px
-        if (width != "200px") {
-          throw new Error("Expected default width to be 200px. Was: " + width);
-        }
-      });
+    cy.getIndexed("[data-testid='stArrowVegaLiteChart'] canvas", 2).should(
+      "have.css",
+      "width",
+      "400px"
+    );
 
     cy.getIndexed("[data-testid='stArrowVegaLiteChart'] canvas", 3).should(
       "have.css",
@@ -57,11 +54,28 @@ describe("st._arrow_vega_lite_chart", () => {
     );
   });
 
+  it("displays interactive charts correctly", () => {
+    cy.getIndexed(
+      "[data-testid='stArrowVegaLiteChart']",
+      4
+    ).matchThemedSnapshots(`interactive_arrow_vega_lite_chart`);
+  });
+
   it("supports different ways to get the same plot", () => {
     cy.get("[data-testid='stArrowVegaLiteChart']")
-      .filter(idx => idx >= 4 && idx <= 7)
+      .filter(idx => idx >= 5 && idx <= 8)
       .each((el, idx) => {
         return cy.wrap(el).matchThemedSnapshots(`arrow_vega_lite_chart${idx}`);
+      });
+  });
+
+  it("supports Streamlit theme", () => {
+    cy.get("[data-testid='stArrowVegaLiteChart']")
+      .filter(idx => idx >= 9 && idx <= 10)
+      .each((el, idx) => {
+        return cy
+          .wrap(el)
+          .matchThemedSnapshots(`arrow_vega_lite_chart_theming_${idx}`);
       });
   });
 });

@@ -12,21 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import dataclass
 from datetime import datetime, date, time
 from textwrap import dedent
 from typing import Any, cast, List, Optional, Sequence, Tuple, TYPE_CHECKING, Union
 
-import attr
 from dateutil import relativedelta
 from typing_extensions import TypeAlias
 
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.DateInput_pb2 import DateInput as DateInputProto
 from streamlit.proto.TimeInput_pb2 import TimeInput as TimeInputProto
-from streamlit.state import (
+from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,
     WidgetCallback,
@@ -114,7 +114,7 @@ def _parse_max_date(
     return parsed_max_date
 
 
-@attr.s(auto_attribs=True, slots=True, frozen=True)
+@dataclass(frozen=True)
 class _DateInputValues:
     value: Sequence[date]
     is_range: bool
@@ -143,7 +143,7 @@ class _DateInputValues:
             ),
         )
 
-    def __attrs_post_init__(self) -> None:
+    def __post_init__(self) -> None:
         if self.min > self.max:
             raise StreamlitAPIException(
                 f"The `min_value`, set to {self.min}, shouldn't be larger "
@@ -213,7 +213,7 @@ class TimeWidgetsMixin:
         >>> st.write('Alarm is set for', t)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.time_input.py
+           https://doc-time-input.streamlitapp.com/
            height: 260px
 
         """
@@ -268,7 +268,9 @@ class TimeWidgetsMixin:
         if help is not None:
             time_input_proto.help = dedent(help)
 
-        def deserialize_time_input(ui_value: str, widget_id: Any = "") -> time:
+        def deserialize_time_input(
+            ui_value: Optional[str], widget_id: Any = ""
+        ) -> time:
             return (
                 datetime.strptime(ui_value, "%H:%M").time()
                 if ui_value is not None
@@ -280,7 +282,7 @@ class TimeWidgetsMixin:
                 v = v.time()
             return time.strftime(v, "%H:%M")
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "time_input",
             time_input_proto,
             user_key=key,
@@ -295,14 +297,12 @@ class TimeWidgetsMixin:
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         time_input_proto.disabled = disabled
-        if set_frontend_value:
-            time_input_proto.value = serialize_time_input(
-                cast(Union[datetime, time], current_value)
-            )
+        if widget_state.value_changed:
+            time_input_proto.value = serialize_time_input(widget_state.value)
             time_input_proto.set_value = True
 
         self.dg._enqueue("time_input", time_input_proto)
-        return cast(time, current_value)
+        return widget_state.value
 
     @track_fingerprint
     def date_input(
@@ -365,7 +365,7 @@ class TimeWidgetsMixin:
         >>> st.write('Your birthday is:', d)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.date_input.py
+           https://doc-date-input.streamlitapp.com/
            height: 260px
 
         """
@@ -445,7 +445,7 @@ class TimeWidgetsMixin:
             to_serialize = list(v) if isinstance(v, (list, tuple)) else [v]
             return [date.strftime(v, "%Y/%m/%d") for v in to_serialize]
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "date_input",
             date_input_proto,
             user_key=key,
@@ -460,12 +460,12 @@ class TimeWidgetsMixin:
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         date_input_proto.disabled = disabled
-        if set_frontend_value:
-            date_input_proto.value[:] = serialize_date_input(current_value)
+        if widget_state.value_changed:
+            date_input_proto.value[:] = serialize_date_input(widget_state.value)
             date_input_proto.set_value = True
 
         self.dg._enqueue("date_input", date_input_proto)
-        return cast(DateWidgetReturn, current_value)
+        return widget_state.value
 
     @property
     def dg(self) -> "DeltaGenerator":

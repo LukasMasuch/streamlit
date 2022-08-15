@@ -15,8 +15,10 @@
 """A bunch of useful utilities."""
 
 import functools
+import hashlib
 import os
 import subprocess
+import numpy as np
 
 from typing import Any, Dict, List, Mapping, TypeVar
 from typing_extensions import Final
@@ -25,6 +27,7 @@ from streamlit import env_util
 
 # URL of Streamlit's help page.
 HELP_DOC: Final = "https://docs.streamlit.io/"
+FLOAT_EQUALITY_EPSILON: Final = 0.000000000005
 
 
 def memoize(func):
@@ -125,7 +128,12 @@ def index_(iterable, x) -> int:
     """
 
     for i, value in enumerate(iterable):
-        if x == value:
+        # https://stackoverflow.com/questions/588004/is-floating-point-math-broken
+        # https://github.com/streamlit/streamlit/issues/4663
+        if isinstance(value, np.float64) or isinstance(value, float):
+            if abs(x - value) < FLOAT_EQUALITY_EPSILON:
+                return i
+        elif x == value:
             return i
     raise ValueError("{} is not in iterable".format(str(x)))
 
@@ -141,3 +149,10 @@ def lower_clean_dict_keys(dict: Mapping[_Key, _Value]) -> Dict[str, _Value]:
 # TODO: Move this into errors.py? Replace with StreamlitAPIException?
 class Error(Exception):
     pass
+
+
+def calc_md5(s: str) -> str:
+    """Return the md5 hash of the given string."""
+    h = hashlib.new("md5")
+    h.update(s.encode("utf-8"))
+    return h.hexdigest()

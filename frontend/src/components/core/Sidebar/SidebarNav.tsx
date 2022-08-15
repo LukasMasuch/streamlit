@@ -16,6 +16,9 @@
  */
 
 import React, { ReactElement, useCallback, useRef, useState } from "react"
+// We import react-device-detect in this way so that tests can mock its
+// isMobile field sanely.
+import * as reactDeviceDetect from "react-device-detect"
 import {
   ExpandMore,
   ExpandLess,
@@ -37,32 +40,21 @@ import {
 
 export interface Props {
   appPages: IAppPage[]
+  collapseSidebar: () => void
+  currentPageScriptHash: string
   hasSidebarElements: boolean
-  onPageChange: (pageName: string) => void
   hideParentScrollbar: (newValue: boolean) => void
-
-  // BUG(vdonato): currentPageName is "" for the root page.
-  // BUG(vdonato): currentPageName is not guaranteed to be unique. This means we show 2+ pages
-  // as "active" at the same time, if they have the same name.
-  //
-  // Potential solutions:
-  // 1. Add "isActive" boolean to items inside appPages
-  // 2. Instead of currentPageName send currentPageIndex (i.e. index of active page in the appPages
-  //    array).
-  //
-  // BUG(vdonato): Page title should change when you swith pages.
-  // BUG(tvst): X button should have same color as hamburger.
-  // BUG(tvst): X and > buttons should have same margins as hamburger.
-  currentPageName: string
+  onPageChange: (pageName: string) => void
   pageLinkBaseUrl: string
 }
 
 const SidebarNav = ({
   appPages,
+  collapseSidebar,
+  currentPageScriptHash,
   hasSidebarElements,
-  onPageChange,
   hideParentScrollbar,
-  currentPageName,
+  onPageChange,
   pageLinkBaseUrl,
 }: Props): ReactElement | null => {
   if (appPages.length < 2) {
@@ -105,7 +97,10 @@ const SidebarNav = ({
         onMouseOut={onMouseOut}
       >
         {appPages.map(
-          ({ icon: pageIcon, pageName }: IAppPage, pageIndex: number) => {
+          (
+            { icon: pageIcon, pageName, pageScriptHash }: IAppPage,
+            pageIndex: number
+          ) => {
             pageName = pageName as string
             // NOTE: We use window.location to get the port instead of
             // getBaseUriParts() because the port may differ in dev mode (since
@@ -131,11 +126,14 @@ const SidebarNav = ({
               <li key={pageName}>
                 <StyledSidebarNavLinkContainer>
                   <StyledSidebarNavLink
-                    isActive={currentPageName === pageName}
+                    isActive={pageScriptHash === currentPageScriptHash}
                     href={pageUrl}
                     onClick={e => {
                       e.preventDefault()
-                      onPageChange(navigateTo)
+                      onPageChange(pageScriptHash as string)
+                      if (reactDeviceDetect.isMobile) {
+                        collapseSidebar()
+                      }
                     }}
                   >
                     {pageIcon && pageIcon.length ? (

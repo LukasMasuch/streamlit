@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from datetime import date, time, datetime, timedelta, timezone
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from typing import Any, List, cast, Optional
 from textwrap import dedent
@@ -24,7 +24,8 @@ from streamlit.errors import StreamlitAPIException
 from streamlit.js_number import JSNumber
 from streamlit.js_number import JSNumberBoundsException
 from streamlit.proto.Slider_pb2 import Slider as SliderProto
-from streamlit.state import (
+from streamlit.runtime.state import (
+    get_session_state,
     register_widget,
     WidgetArgs,
     WidgetCallback,
@@ -146,7 +147,7 @@ class SliderMixin:
         >>> st.write("Start time:", start_time)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.slider.py
+           https://doc-slider.streamlitapp.com/
            height: 300px
 
         """
@@ -188,9 +189,18 @@ class SliderMixin:
         check_callback_rules(self.dg, on_change)
         check_session_state_rules(default_value=value, key=key)
 
-        # Set value default.
         if value is None:
-            value = min_value if min_value is not None else 0
+            # Set value from session_state if exists.
+            session_state = get_session_state().filtered_state
+
+            # we look first to session_state value of the widget because
+            # depending on the value (single value or list/tuple) the slider should be
+            # initializing differently (either as range or single value slider)
+            if key is not None and key in session_state:
+                value = session_state[key]
+            else:
+                # Set value default.
+                value = min_value if min_value is not None else 0
 
         SUPPORTED_TYPES = {
             int: SliderProto.INT,
@@ -276,14 +286,10 @@ class SliderMixin:
             max_value = DEFAULTS[data_type]["max_value"]
         if step is None:
             step = DEFAULTS[data_type]["step"]
-            if (
-                data_type
-                in (
-                    SliderProto.DATETIME,
-                    SliderProto.DATE,
-                )
-                and max_value - min_value < timedelta(days=1)
-            ):
+            if data_type in (
+                SliderProto.DATETIME,
+                SliderProto.DATE,
+            ) and max_value - min_value < timedelta(days=1):
                 step = timedelta(minutes=15)
         if format is None:
             format = DEFAULTS[data_type]["format"]
@@ -482,7 +488,7 @@ class SliderMixin:
                 value = [_datetime_to_micros(v) for v in value]
             return value
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "slider",
             slider_proto,
             user_key=key,
@@ -497,12 +503,12 @@ class SliderMixin:
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         slider_proto.disabled = disabled
-        if set_frontend_value:
-            slider_proto.value[:] = serialize_slider(current_value)
+        if widget_state.value_changed:
+            slider_proto.value[:] = serialize_slider(widget_state.value)
             slider_proto.set_value = True
 
         self.dg._enqueue("slider", slider_proto)
-        return current_value
+        return widget_state.value
 
     @property
     def dg(self) -> "streamlit.delta_generator.DeltaGenerator":

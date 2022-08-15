@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import re
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+
+from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
 from typing import Optional, cast
@@ -22,8 +23,8 @@ from typing import Optional, cast
 import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.ColorPicker_pb2 import ColorPicker as ColorPickerProto
-from streamlit.state import register_widget
-from streamlit.state import (
+from streamlit.runtime.state import (
+    register_widget,
     WidgetArgs,
     WidgetCallback,
     WidgetKwargs,
@@ -85,7 +86,7 @@ class ColorPickerMixin:
         >>> st.write('The current color is', color)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.color_picker.py
+           https://doc-color-picker.streamlitapp.com/
            height: 335px
 
         """
@@ -157,7 +158,7 @@ class ColorPickerMixin:
         ) -> str:
             return str(ui_value if ui_value is not None else value)
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "color_picker",
             color_picker_proto,
             user_key=key,
@@ -172,12 +173,12 @@ class ColorPickerMixin:
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         color_picker_proto.disabled = disabled
-        if set_frontend_value:
-            color_picker_proto.value = current_value
+        if widget_state.value_changed:
+            color_picker_proto.value = widget_state.value
             color_picker_proto.set_value = True
 
         self.dg._enqueue("color_picker", color_picker_proto)
-        return cast(str, current_value)
+        return widget_state.value
 
     @property
     def dg(self) -> "streamlit.delta_generator.DeltaGenerator":

@@ -92,6 +92,7 @@ export const createBaseThemePrimitives = (
   theme: Theme
 ): ThemePrimitives => {
   const { colors, genericFonts } = theme
+
   return {
     ...baseTheme,
 
@@ -112,7 +113,7 @@ export const createBaseThemePrimitives = (
     mono300: colors.lightGray, // Disabled widget background
     mono400: colors.lightGray, // Slider track
     mono500: colors.gray, // Clicked checkbox and radio
-    mono600: colors.gray, // Disabled widget text
+    mono600: colors.fadedText40, // Disabled widget text
     mono700: colors.gray, // Unselected checkbox and radio
     mono800: colors.bodyText, // Selectbox text
     mono900: colors.bodyText, // Not used, but just in case.
@@ -189,6 +190,8 @@ export const createThemeOverrides = (theme: Theme): Record<string, any> => {
       borderOpaque: colors.darkenedBgMix25,
       accent: transparentize(colors.primary, 0.5),
       tagPrimarySolidBackground: colors.primary,
+      tagPrimaryFontDisabled: colors.fadedText40,
+      tagPrimaryOutlinedDisabled: colors.transparent,
       borderFocus: colors.primary,
       contentPrimary: colors.bodyText,
       inputPlaceholder: colors.fadedText60,
@@ -269,6 +272,7 @@ type DerivedColors = {
   linkText: string
   fadedText05: string
   fadedText10: string
+  fadedText20: string
   fadedText40: string
   fadedText60: string
 
@@ -294,6 +298,7 @@ const computeDerivedColors = (
 
   const fadedText05 = transparentize(bodyText, 0.9) // Mostly used for very faint 1px lines.
   const fadedText10 = transparentize(bodyText, 0.8) // Mostly used for 1px lines.
+  const fadedText20 = transparentize(bodyText, 0.7) // Used for 1px lines.
   const fadedText40 = transparentize(bodyText, 0.6) // Backgrounds.
   const fadedText60 = transparentize(bodyText, 0.4) // Secondary text.
 
@@ -311,6 +316,7 @@ const computeDerivedColors = (
     linkText,
     fadedText05,
     fadedText10,
+    fadedText20,
     fadedText40,
     fadedText60,
 

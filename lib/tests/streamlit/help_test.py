@@ -34,7 +34,7 @@ class StHelpTest(testutil.DeltaGeneratorTestCase):
 
         ds = self.get_delta_from_queue().new_element.doc_string
         self.assertEqual("my_func", ds.name)
-        self.assertEqual("help_test", ds.module)
+        self.assertEqual("tests.streamlit.help_test", ds.module)
         self.assertEqual("<class 'function'>", ds.type)
         self.assertEqual("(some_param, another_param=123)", ds.signature)
         self.assertEqual("This is the doc", ds.doc_string)
@@ -49,7 +49,7 @@ class StHelpTest(testutil.DeltaGeneratorTestCase):
 
         ds = self.get_delta_from_queue().new_element.doc_string
         self.assertEqual("my_func", ds.name)
-        self.assertEqual("help_test", ds.module)
+        self.assertEqual("tests.streamlit.help_test", ds.module)
         self.assertEqual("<class 'function'>", ds.type)
         self.assertEqual("(some_param, another_param=123)", ds.signature)
         self.assertEqual("No docs available.", ds.doc_string)
@@ -80,8 +80,8 @@ class StHelpTest(testutil.DeltaGeneratorTestCase):
         self.assertEqual("dataframe", ds.name)
         self.assertEqual("streamlit", ds.module)
         self.assertEqual("<class 'method'>", ds.type)
-        if sys.version_info[1] == 7:
-            # Python 3.7 represents the signature slightly differently
+        if sys.version_info < (3, 9):
+            # Python < 3.9 represents the signature slightly differently
             self.assertEqual(
                 "(data: 'Data' = None, width: Union[int, NoneType] = None, "
                 "height: Union[int, NoneType] = None) -> 'DeltaGenerator'",
@@ -105,19 +105,38 @@ class StHelpTest(testutil.DeltaGeneratorTestCase):
         self.assertEqual("cache", ds.name)
         self.assertEqual("streamlit", ds.module)
         self.assertEqual("<class 'function'>", ds.type)
-        self.assertEqual(
-            ds.signature,
-            (
-                "(func=None, "
-                "persist=False, "
-                "allow_output_mutation=False, "
-                "show_spinner=True, "
-                "suppress_st_warning=False, "
-                "hash_funcs=None, "
-                "max_entries=None, "
-                "ttl=None)"
-            ),
-        )
+
+        if sys.version_info < (3, 9):
+            # Optionals are printed as Unions in Python < 3.9
+            self.assertEqual(
+                ds.signature,
+                (
+                    "(func: Union[~F, NoneType] = None, "
+                    "persist: bool = False, "
+                    "allow_output_mutation: bool = False, "
+                    "show_spinner: bool = True, "
+                    "suppress_st_warning: bool = False, "
+                    "hash_funcs: Union[Dict[Union[str, Type[Any]], Callable[[Any], Any]], NoneType] = None, "
+                    "max_entries: Union[int, NoneType] = None, "
+                    "ttl: Union[float, NoneType] = None"
+                    ") -> Union[Callable[[~F], ~F], ~F]"
+                ),
+            )
+        else:
+            self.assertEqual(
+                ds.signature,
+                (
+                    "(func: Optional[~F] = None, "
+                    "persist: bool = False, "
+                    "allow_output_mutation: bool = False, "
+                    "show_spinner: bool = True, "
+                    "suppress_st_warning: bool = False, "
+                    "hash_funcs: Optional[Dict[Union[str, Type[Any]], Callable[[Any], Any]]] = None, "
+                    "max_entries: Optional[int] = None, "
+                    "ttl: Optional[float] = None"
+                    ") -> Union[Callable[[~F], ~F], ~F]"
+                ),
+            )
         self.assertTrue(ds.doc_string.startswith("Function decorator to"))
 
     def test_st_echo(self):
@@ -179,5 +198,5 @@ class StHelpTest(testutil.DeltaGeneratorTestCase):
         ds = self.get_delta_from_queue().new_element.doc_string
         self.assertEqual(type(MyClass), type)
         self.assertEqual("MyClass", ds.name)
-        self.assertEqual("help_test", ds.module)
+        self.assertEqual("tests.streamlit.help_test", ds.module)
         self.assertEqual("No docs available.", ds.doc_string)

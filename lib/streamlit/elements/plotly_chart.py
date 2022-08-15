@@ -19,7 +19,7 @@ import urllib.parse
 from typing import Any, cast, Dict, List, Set, TYPE_CHECKING, Union
 from typing_extensions import Final, Literal, TypeAlias
 
-from streamlit.legacy_caching import caching
+from streamlit.runtime.legacy_caching import caching
 from streamlit import type_util
 from streamlit.logger import get_logger
 from streamlit.proto.PlotlyChart_pb2 import PlotlyChart as PlotlyChartProto
@@ -97,7 +97,7 @@ class PlotlyMixin:
             Use 'streamlit' to insert the plot and all its dependencies
             directly in the Streamlit app using plotly's offline mode (default).
             Use any other sharing mode to send the chart to Plotly chart studio, which
-            requires an account. See https://plotly.com/chart-studio/ for more information.
+            requires an account. See https://plot.ly/python/chart-studio/ for more information.
 
         **kwargs
             Any argument accepted by Plotly's `plot()` function.
@@ -130,7 +130,7 @@ class PlotlyMixin:
         >>> st.plotly_chart(fig, use_container_width=True)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/charts.plotly_chart.py
+           https://doc-plotly-chart.streamlitapp.com/
            height: 400px
 
         """

@@ -18,10 +18,11 @@
 const sidebar = 100
 const menuButton = sidebar + 10
 const balloons = 1000000
-const header = balloons + 20
-const sidebarMobile = balloons + 30
+const header = balloons - 10
+const sidebarMobile = balloons - 5
 const popupMenu = balloons + 40
 const fullscreenWrapper = balloons + 50
+const tablePortal = fullscreenWrapper + 60
 
 export const zIndices = {
   hide: -1,
@@ -34,4 +35,5 @@ export const zIndices = {
   sidebarMobile,
   popupMenu,
   fullscreenWrapper,
+  tablePortal,
 }

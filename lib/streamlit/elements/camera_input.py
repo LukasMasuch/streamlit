@@ -15,15 +15,14 @@
 from streamlit.scriptrunner.script_run_context import track_fingerprint
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
-from typing import Optional, cast, List
+from typing import Optional, cast, List, TYPE_CHECKING
 
-import streamlit
 from streamlit.proto.CameraInput_pb2 import (
     CameraInput as CameraInputProto,
 )
 
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.state import (
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,
     WidgetCallback,
@@ -34,10 +33,13 @@ from ..proto.Common_pb2 import (
     FileUploaderState as FileUploaderStateProto,
     UploadedFileInfo as UploadedFileInfoProto,
 )
-from ..uploaded_file_manager import UploadedFile, UploadedFileRec
+from streamlit.runtime.uploaded_file_manager import UploadedFile, UploadedFileRec
 
 from .form import current_form_id
 from .utils import check_callback_rules, check_session_state_rules
+
+if TYPE_CHECKING:
+    from streamlit.delta_generator import DeltaGenerator
 
 SomeUploadedSnapshotFile = Optional[UploadedFile]
 
@@ -173,7 +175,7 @@ class CameraInputMixin:
                 return_value = UploadedFile(file_recs[0])
             return return_value
 
-        widget_value, _ = register_widget(
+        camera_input_state = register_widget(
             "camera_input",
             camera_input_proto,
             user_key=key,
@@ -190,7 +192,9 @@ class CameraInputMixin:
         camera_input_proto.disabled = disabled
 
         ctx = get_script_run_ctx()
-        camera_image_input_state = serialize_camera_image_input(widget_value)
+        camera_image_input_state = serialize_camera_image_input(
+            camera_input_state.value
+        )
 
         uploaded_shapshot_info = camera_image_input_state.uploaded_file_info
 
@@ -206,12 +210,12 @@ class CameraInputMixin:
             )
 
         self.dg._enqueue("camera_input", camera_input_proto)
-        return cast(SomeUploadedSnapshotFile, widget_value)
+        return camera_input_state.value
 
     @property
-    def dg(self) -> "streamlit.delta_generator.DeltaGenerator":
+    def dg(self) -> "DeltaGenerator":
         """Get our DeltaGenerator."""
-        return cast("streamlit.delta_generator.DeltaGenerator", self)
+        return cast("DeltaGenerator", self)
 
     @staticmethod
     def _get_file_recs_for_camera_input_widget(

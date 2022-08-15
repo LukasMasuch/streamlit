@@ -21,7 +21,7 @@ from streamlit.scriptrunner.script_run_context import track_fingerprint
 from validators import url
 
 from streamlit import type_util
-from streamlit.in_memory_file_manager import in_memory_file_manager
+from streamlit.runtime.in_memory_file_manager import in_memory_file_manager
 from streamlit.proto.Audio_pb2 import Audio as AudioProto
 from streamlit.proto.Video_pb2 import Video as VideoProto
 
@@ -69,7 +69,7 @@ class MediaMixin:
         >>> st.audio(audio_bytes, format='audio/ogg')
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/charts.audio.py
+           https://doc-audio.streamlitapp.com/
            height: 465px
 
         """
@@ -109,7 +109,7 @@ class MediaMixin:
         >>> st.video(video_bytes)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/charts.video.py
+           https://doc-video.streamlitapp.com/
            height: 700px
 
         .. note::

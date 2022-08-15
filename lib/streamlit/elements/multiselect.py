@@ -12,17 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from enum import Enum
 from textwrap import dedent
-from typing import Any, Callable, Optional, cast, List
+from typing import (
+    Any,
+    Callable,
+    cast,
+    Iterable,
+    Optional,
+    overload,
+    List,
+    Sequence,
+    Union,
+    TypeVar,
+)
 
 import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.MultiSelect_pb2 import MultiSelect as MultiSelectProto
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, OptionSequence, ensure_indexable, is_type, to_key
 
-from streamlit.state import (
+from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,
     WidgetCallback,
@@ -31,8 +43,44 @@ from streamlit.state import (
 from .form import current_form_id
 from .utils import check_callback_rules, check_session_state_rules
 
+T = TypeVar("T")
+
 
 class MultiSelectMixin:
+    @overload
+    def multiselect(
+        self,
+        label: str,
+        options: Sequence[T],
+        default: Optional[Any] = None,
+        format_func: Callable[[Any], Any] = str,
+        key: Optional[Key] = None,
+        help: Optional[str] = None,
+        on_change: Optional[WidgetCallback] = None,
+        args: Optional[WidgetArgs] = None,
+        kwargs: Optional[WidgetKwargs] = None,
+        *,  # keyword-only arguments:
+        disabled: bool = False,
+    ) -> List[T]:
+        ...
+
+    @overload
+    def multiselect(
+        self,
+        label: str,
+        options: OptionSequence,
+        default: Optional[Any] = None,
+        format_func: Callable[[Any], Any] = str,
+        key: Optional[Key] = None,
+        help: Optional[str] = None,
+        on_change: Optional[WidgetCallback] = None,
+        args: Optional[WidgetArgs] = None,
+        kwargs: Optional[WidgetKwargs] = None,
+        *,  # keyword-only arguments:
+        disabled: bool = False,
+    ) -> List[Any]:
+        ...
+
     @track_fingerprint
     def multiselect(
         self,
@@ -98,15 +146,8 @@ class MultiSelectMixin:
         >>> st.write('You selected:', options)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.multiselect.py
+           https://doc-multiselect.streamlitapp.com/
            height: 420px
-
-        .. note::
-           User experience can be degraded for large lists of `options` (100+), as this widget
-           is not designed to handle arbitrary text search efficiently. See this
-           `thread <https://discuss.streamlit.io/t/streamlit-loading-column-data-takes-too-much-time/1791>`_
-           on the Streamlit community forum for more information and
-           `GitHub issue #1059 <https://github.com/streamlit/streamlit/issues/1059>`_ for updates on the issue.
 
         """
         ctx = get_script_run_ctx()
@@ -128,7 +169,7 @@ class MultiSelectMixin:
         self,
         label: str,
         options: OptionSequence,
-        default: Optional[Any] = None,
+        default: Union[Iterable[Any], Any, None] = None,
         format_func: Callable[[Any], Any] = str,
         key: Optional[Key] = None,
         help: Optional[str] = None,
@@ -145,8 +186,22 @@ class MultiSelectMixin:
 
         opt = ensure_indexable(options)
 
-        # Perform validation checks and return indices base on the default values.
-        def _check_and_convert_to_indices(opt, default_values):
+        @overload
+        def _check_and_convert_to_indices(  # type: ignore[misc]
+            opt: Sequence[Any], default_values: None
+        ) -> Optional[List[int]]:
+            ...
+
+        @overload
+        def _check_and_convert_to_indices(
+            opt: Sequence[Any], default_values: Union[Iterable[Any], Any]
+        ) -> List[int]:
+            ...
+
+        def _check_and_convert_to_indices(
+            opt: Sequence[Any], default_values: Union[Iterable[Any], Any, None]
+        ) -> Optional[List[int]]:
+            """Perform validation checks and return indices based on the default values."""
             if default_values is None and None not in opt:
                 return None
 
@@ -157,11 +212,20 @@ class MultiSelectMixin:
                 if is_type(default_values, "numpy.ndarray") or is_type(
                     default_values, "pandas.core.series.Series"
                 ):
-                    default_values = list(default_values)
+                    default_values = list(cast(Iterable[Any], default_values))
                 elif not default_values or default_values in opt:
                     default_values = [default_values]
                 else:
                     default_values = list(default_values)
+            if len(default_values) != 0 and isinstance(default_values[0], Enum):
+                str_default_values = [str(enum) for enum in default_values]
+                mapped_opt_keys = [str(enum) for enum in opt]
+                for value in str_default_values:
+                    if value not in mapped_opt_keys:
+                        raise StreamlitAPIException(
+                            "Every Multiselect default value must exist in options"
+                        )
+                return [mapped_opt_keys.index(value) for value in str_default_values]
 
             for value in default_values:
                 if value not in opt:
@@ -174,7 +238,7 @@ class MultiSelectMixin:
         indices = _check_and_convert_to_indices(opt, default)
         multiselect_proto = MultiSelectProto()
         multiselect_proto.label = label
-        default_value = [] if indices is None else indices
+        default_value: List[int] = [] if indices is None else indices
         multiselect_proto.default[:] = default_value
         multiselect_proto.options[:] = [str(format_func(option)) for option in opt]
         multiselect_proto.form_id = current_form_id(self.dg)
@@ -183,14 +247,16 @@ class MultiSelectMixin:
 
         def deserialize_multiselect(
             ui_value: Optional[List[int]], widget_id: str = ""
-        ) -> List[str]:
-            current_value = ui_value if ui_value is not None else default_value
+        ) -> List[Any]:
+            current_value: List[int] = (
+                ui_value if ui_value is not None else default_value
+            )
             return [opt[i] for i in current_value]
 
-        def serialize_multiselect(value):
+        def serialize_multiselect(value: List[Any]) -> List[int]:
             return _check_and_convert_to_indices(opt, value)
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "multiselect",
             multiselect_proto,
             user_key=key,
@@ -201,18 +267,18 @@ class MultiSelectMixin:
             serializer=serialize_multiselect,
             ctx=ctx,
         )
-
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         multiselect_proto.disabled = disabled
-        if set_frontend_value:
-            multiselect_proto.value[:] = _check_and_convert_to_indices(
-                opt, current_value
-            )
+        if widget_state.value_changed:
+            multiselect_proto.value[:] = serialize_multiselect(widget_state.value)
             multiselect_proto.set_value = True
 
         self.dg._enqueue("multiselect", multiselect_proto)
-        return cast(List[str], current_value)
+        if len(widget_state.value) != 0:
+            if isinstance(widget_state.value[0], Enum):
+                return [str(enum) for enum in widget_state.value]
+        return widget_state.value
 
     @property
     def dg(self) -> "streamlit.delta_generator.DeltaGenerator":

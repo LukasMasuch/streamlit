@@ -18,10 +18,8 @@
 import React, { ReactElement } from "react"
 import { StyledList, StyledEmptyState, OptionListProps } from "baseui/menu"
 import { FixedSizeList } from "react-window"
-import {
-  ThemedStyledDropdownListItem,
-  StyledTruncateText,
-} from "./styled-components"
+import { Placement, OverflowTooltip } from "src/components/shared/Tooltip"
+import { ThemedStyledDropdownListItem } from "./styled-components"
 
 const LIST_ITEM_HEIGHT = 40
 const EMPTY_LIST_HEIGHT = 90
@@ -48,7 +46,9 @@ function FixedSizeListItem(props: FixedSizeListItemProps): ReactElement {
       style={style}
       {...restChildProps}
     >
-      <StyledTruncateText>{item.label}</StyledTruncateText>
+      <OverflowTooltip content={item.label} placement={Placement.AUTO}>
+        {item.label}
+      </OverflowTooltip>
     </ThemedStyledDropdownListItem>
   )
 }
@@ -68,7 +68,7 @@ const VirtualDropdown = React.forwardRef((props: any, ref) => {
   const height = Math.min(MAX_LIST_HEIGHT, children.length * LIST_ITEM_HEIGHT)
 
   return (
-    <StyledList ref={ref}>
+    <StyledList ref={ref} $style={{ paddingTop: 0, paddingBottom: 0 }}>
       <FixedSizeList
         width="100%"
         height={height}

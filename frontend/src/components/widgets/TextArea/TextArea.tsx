@@ -29,6 +29,7 @@ import {
 import TooltipIcon from "src/components/shared/TooltipIcon"
 import { Placement } from "src/components/shared/Tooltip"
 import { isInForm } from "src/lib/utils"
+import { StyledTextAreaContainer } from "./styled-components"
 
 export interface Props {
   disabled: boolean
@@ -195,27 +196,35 @@ class TextArea extends React.PureComponent<Props, State> {
             </StyledWidgetLabelHelp>
           )}
         </WidgetLabel>
-        <UITextArea
-          data-testid="stTextArea"
-          value={value}
-          placeholder={placeholder}
-          onBlur={this.onBlur}
-          onChange={this.onChange}
-          onKeyDown={this.onKeyDown}
-          disabled={disabled}
-          overrides={{
-            Input: {
-              style: {
-                height: height ? `${height}px` : "",
-                minHeight: "95px",
-                resize: "vertical",
-                "::placeholder": {
-                  opacity: "0.7",
+        <StyledTextAreaContainer>
+          <UITextArea
+            data-testid="stTextArea"
+            value={value}
+            placeholder={placeholder}
+            onBlur={this.onBlur}
+            onChange={this.onChange}
+            onKeyDown={this.onKeyDown}
+            disabled={disabled}
+            overrides={{
+              Input: {
+                style: {
+                  lineHeight: "1.4",
+                  height: height ? `${height}px` : "",
+                  minHeight: "95px",
+                  resize: "vertical",
+                  "::placeholder": {
+                    opacity: "0.7",
+                  },
+                  // Baseweb requires long-hand props, short-hand leads to weird bugs & warnings.
+                  paddingRight: "1rem",
+                  paddingLeft: "1rem",
+                  paddingBottom: "1rem",
+                  paddingTop: "1rem",
                 },
               },
-            },
-          }}
-        />
+            }}
+          />
+        </StyledTextAreaContainer>
         <InputInstructions
           dirty={dirty}
           value={value}

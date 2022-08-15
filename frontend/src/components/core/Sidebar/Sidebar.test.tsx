@@ -35,7 +35,7 @@ function renderSideBar(props: Partial<SidebarProps> = {}): ReactWrapper {
       theme={lightTheme}
       appPages={[]}
       onPageChange={jest.fn()}
-      currentPageName={""}
+      currentPageScriptHash={""}
       hasElements
       pageLinkBaseUrl={""}
       hideSidebarNav={false}
@@ -48,7 +48,7 @@ describe("Sidebar Component", () => {
   it("should render without crashing", () => {
     const wrapper = renderSideBar({})
 
-    expect(wrapper.find("StyledSidebarContent").exists()).toBe(true)
+    expect(wrapper.find("StyledSidebar").exists()).toBe(true)
   })
 
   it("should render expanded", () => {
@@ -56,9 +56,7 @@ describe("Sidebar Component", () => {
       initialSidebarState: PageConfig.SidebarState.EXPANDED,
     })
 
-    expect(wrapper.find("StyledSidebarContent").prop("isCollapsed")).toBe(
-      false
-    )
+    expect(wrapper.find("Resizable").prop("isCollapsed")).toBe(false)
   })
 
   it("should render collapsed", () => {
@@ -66,7 +64,7 @@ describe("Sidebar Component", () => {
       initialSidebarState: PageConfig.SidebarState.COLLAPSED,
     })
 
-    expect(wrapper.find("StyledSidebarContent").prop("isCollapsed")).toBe(true)
+    expect(wrapper.find("Resizable").prop("isCollapsed")).toBe(true)
   })
 
   it("should collapse on toggle if expanded", () => {
@@ -78,7 +76,7 @@ describe("Sidebar Component", () => {
       .find("StyledSidebarCloseButton")
       .find("button")
       .simulate("click")
-    expect(wrapper.find("StyledSidebarContent").prop("isCollapsed")).toBe(true)
+    expect(wrapper.find("Resizable").prop("isCollapsed")).toBe(true)
   })
 
   it("should expand on toggle if collapsed", () => {
@@ -90,9 +88,15 @@ describe("Sidebar Component", () => {
       .find("StyledSidebarCollapsedControl")
       .find("button")
       .simulate("click")
-    expect(wrapper.find("StyledSidebarContent").prop("isCollapsed")).toBe(
-      false
-    )
+    expect(wrapper.find("Resizable").prop("isCollapsed")).toBe(false)
+  })
+
+  it("chevron does not render if sidebar expanded", () => {
+    const wrapper = renderSideBar({
+      initialSidebarState: PageConfig.SidebarState.EXPANDED,
+    })
+
+    expect(wrapper.find("StyledSidebarCollapsedControl").exists()).toBe(false)
   })
 
   it("hides scrollbar when hideScrollbar is called", () => {
@@ -114,9 +118,7 @@ describe("Sidebar Component", () => {
 
   it("has extra top and bottom padding if no SidebarNav is displayed", () => {
     const wrapper = renderSideBar({
-      appPages: [
-        { pageName: "streamlit_app", scriptPath: "streamlit_app.py" },
-      ],
+      appPages: [{ pageName: "streamlit_app", pageScriptHash: "page_hash" }],
     })
 
     expect(wrapper.find("StyledSidebarUserContent")).toHaveStyleRule(
@@ -128,8 +130,8 @@ describe("Sidebar Component", () => {
   it("has less padding if the SidebarNav is displayed", () => {
     const wrapper = renderSideBar({
       appPages: [
-        { pageName: "streamlit_app", scriptPath: "streamlit_app.py" },
-        { pageName: "streamlit_app2", scriptPath: "streamlit_app2.py" },
+        { pageName: "streamlit_app", pageScriptHash: "page_hash" },
+        { pageName: "streamlit_app2", pageScriptHash: "page_hash2" },
       ],
     })
 
@@ -165,8 +167,8 @@ describe("Sidebar Component", () => {
 
   it("renders SidebarNav component", () => {
     const appPages = [
-      { pageName: "streamlit_app", scriptPath: "streamlit_app.py" },
-      { pageName: "streamlit_app2", scriptPath: "streamlit_app2.py" },
+      { pageName: "streamlit_app", pageScriptHash: "page_hash" },
+      { pageName: "streamlit_app2", pageScriptHash: "page_hash2" },
     ]
     const wrapper = renderSideBar({ appPages })
 
@@ -182,8 +184,8 @@ describe("Sidebar Component", () => {
 
   it("can hide SidebarNav with the hideSidebarNav option", () => {
     const appPages = [
-      { pageName: "streamlit_app", scriptPath: "streamlit_app.py" },
-      { pageName: "streamlit_app2", scriptPath: "streamlit_app2.py" },
+      { pageName: "streamlit_app", pageScriptHash: "page_hash" },
+      { pageName: "streamlit_app2", pageScriptHash: "page_hash2" },
     ]
     const wrapper = renderSideBar({ appPages, hideSidebarNav: true })
 

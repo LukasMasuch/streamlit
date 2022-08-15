@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Some casts in this file are only occasionally necessary depending on the
+# user's Python version, and mypy doesn't have a good way of toggling this
+# specific config option at a per-line level.
+# mypy: no-warn-unused-ignores
+
 """Image marshalling."""
 
 import imghdr
@@ -27,7 +32,7 @@ from PIL import Image, ImageFile
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.logger import get_logger
-from streamlit.in_memory_file_manager import in_memory_file_manager
+from streamlit.runtime.in_memory_file_manager import in_memory_file_manager
 from streamlit.proto.Image_pb2 import ImageList as ImageListProto
 from streamlit.scriptrunner.script_run_context import track_fingerprint
 
@@ -117,7 +122,7 @@ class ImageMixin:
         >>> st.image(image, caption='Sunrise by the mountains')
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/charts.image.py
+           https://doc-image.streamlitapp.com/
            height: 710px
 
         """
@@ -312,8 +317,12 @@ def image_to_url(
                     "have exactly 3 color channels"
                 )
 
+        # Depending on the version of numpy that the user has installed, the
+        # typechecker may not be able to deduce that indexing into a
+        # `npt.NDArray[Any]` returns a `npt.NDArray[Any]`, so we need to
+        # ignore redundant casts below.
         data = _np_array_to_bytes(
-            array=cast("npt.NDArray[Any]", image),
+            array=cast("npt.NDArray[Any]", image),  # type: ignore[redundant-cast]
             output_format=output_format,
         )
 
@@ -409,7 +418,7 @@ def marshall_images(
                     image = textfile.read()
 
             # Following regex allows svg image files to start either via a "<?xml...>" tag eventually followed by a "<svg...>" tag or directly starting with a "<svg>" tag
-            if re.search(r"(^\s?(<\?xml[\s\S]*<svg )|^\s?<svg )", image):
+            if re.search(r"(^\s?(<\?xml[\s\S]*<svg\s)|^\s?<svg\s)", image):
                 proto_img.markup = f"data:image/svg+xml,{image}"
                 is_svg = True
         if not is_svg:

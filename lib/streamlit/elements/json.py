@@ -16,8 +16,9 @@ import json
 from typing import Any, cast, TYPE_CHECKING
 
 from streamlit.proto.Json_pb2 import Json as JsonProto
-from streamlit.scriptrunner.script_run_context import track_fingerprint
-from streamlit.state import SessionStateProxy
+from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.state import SessionStateProxy
+from streamlit.user_info import UserInfoProxy
 
 
 if TYPE_CHECKING:
@@ -60,13 +61,13 @@ class JsonMixin:
         ... })
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/data.json.py
+           https://doc-json.streamlitapp.com/
            height: 385px
 
         """
         import streamlit as st
 
-        if isinstance(body, SessionStateProxy):
+        if isinstance(body, (SessionStateProxy, UserInfoProxy)):
             body = body.to_dict()
 
         if not isinstance(body, str):

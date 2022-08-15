@@ -18,9 +18,9 @@ from typing import Any, Callable, Optional, cast
 import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Slider_pb2 import Slider as SliderProto
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.scriptrunner.script_run_context import track_fingerprint
-from streamlit.state import (
+from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,
     WidgetCallback,
@@ -37,7 +37,7 @@ class SelectSliderMixin:
     def select_slider(
         self,
         label: str,
-        options: OptionSequence = [],
+        options: OptionSequence = (),
         value: Any = None,
         format_func: Callable[[Any], Any] = str,
         key: Optional[Key] = None,
@@ -116,7 +116,7 @@ class SelectSliderMixin:
         >>> st.write('You selected wavelengths between', start_color, 'and', end_color)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.select_slider.py
+           https://doc-select-slider.streamlitapp.com/
            height: 450px
 
         """
@@ -138,7 +138,7 @@ class SelectSliderMixin:
     def _select_slider(
         self,
         label: str,
-        options: OptionSequence = [],
+        options: OptionSequence = (),
         value: Any = None,
         format_func: Callable[[Any], Any] = str,
         key: Optional[Key] = None,
@@ -208,7 +208,7 @@ class SelectSliderMixin:
         def serialize_select_slider(v):
             return as_index_list(v)
 
-        current_value, set_frontend_value = register_widget(
+        widget_state = register_widget(
             "slider",
             slider_proto,
             user_key=key,
@@ -223,12 +223,12 @@ class SelectSliderMixin:
         # This needs to be done after register_widget because we don't want
         # the following proto fields to affect a widget's ID.
         slider_proto.disabled = disabled
-        if set_frontend_value:
-            slider_proto.value[:] = serialize_select_slider(current_value)
+        if widget_state.value_changed:
+            slider_proto.value[:] = serialize_select_slider(widget_state.value)
             slider_proto.set_value = True
 
         self.dg._enqueue("slider", slider_proto)
-        return current_value
+        return widget_state.value
 
     @property
     def dg(self) -> "streamlit.delta_generator.DeltaGenerator":

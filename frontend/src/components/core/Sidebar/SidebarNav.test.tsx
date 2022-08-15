@@ -23,6 +23,7 @@ import {
   Description,
 } from "@emotion-icons/material-outlined"
 import React from "react"
+import * as reactDeviceDetect from "react-device-detect"
 import { act } from "react-dom/test-utils"
 
 import Icon from "src/components/shared/Icon"
@@ -52,13 +53,14 @@ const mockUseIsOverflowing = useIsOverflowing as jest.MockedFunction<
 
 const getProps = (props: Partial<Props> = {}): Props => ({
   appPages: [
-    { pageName: "streamlit_app", scriptPath: "streamlit_app.py" },
-    { pageName: "my_other_page", scriptPath: "my_other_page.py" },
+    { pageScriptHash: "main_page_hash", pageName: "streamlit_app" },
+    { pageScriptHash: "other_page_hash", pageName: "my_other_page" },
   ],
+  collapseSidebar: jest.fn(),
+  currentPageScriptHash: "",
   hasSidebarElements: false,
-  onPageChange: jest.fn(),
   hideParentScrollbar: jest.fn(),
-  currentPageName: "",
+  onPageChange: jest.fn(),
   pageLinkBaseUrl: "",
   ...props,
 })
@@ -68,6 +70,9 @@ const mockClickEvent = new MouseEvent("click") as any
 describe("SidebarNav", () => {
   afterEach(() => {
     mockUseIsOverflowing.mockReset()
+
+    // @ts-ignore
+    reactDeviceDetect.isMobile = false
   })
 
   it("returns null if 0 appPages (may be true before the first script run)", () => {
@@ -348,19 +353,7 @@ describe("SidebarNav", () => {
     )
   })
 
-  it("passes the empty string to onPageChange if the main page link is clicked", () => {
-    const props = getProps()
-    const wrapper = shallow(<SidebarNav {...props} />)
-
-    const preventDefault = jest.fn()
-    const links = wrapper.find(StyledSidebarNavLink)
-    links.at(0).simulate("click", { preventDefault })
-
-    expect(preventDefault).toHaveBeenCalled()
-    expect(props.onPageChange).toHaveBeenCalledWith("")
-  })
-
-  it("passes the page name to onPageChange if any other link is clicked", () => {
+  it("passes the pageScriptHash to onPageChange if a link is clicked", () => {
     const props = getProps()
     const wrapper = shallow(<SidebarNav {...props} />)
 
@@ -369,7 +362,24 @@ describe("SidebarNav", () => {
     links.at(1).simulate("click", { preventDefault })
 
     expect(preventDefault).toHaveBeenCalled()
-    expect(props.onPageChange).toHaveBeenCalledWith("my_other_page")
+    expect(props.onPageChange).toHaveBeenCalledWith("other_page_hash")
+    expect(props.collapseSidebar).not.toHaveBeenCalled()
+  })
+
+  it("collapses sidebar on page change when on mobile", () => {
+    // @ts-ignore
+    reactDeviceDetect.isMobile = true
+
+    const props = getProps()
+    const wrapper = shallow(<SidebarNav {...props} />)
+
+    const preventDefault = jest.fn()
+    const links = wrapper.find(StyledSidebarNavLink)
+    links.at(1).simulate("click", { preventDefault })
+
+    expect(preventDefault).toHaveBeenCalled()
+    expect(props.onPageChange).toHaveBeenCalledWith("other_page_hash")
+    expect(props.collapseSidebar).toHaveBeenCalled()
   })
 
   it("calls hideParentScrollbar onMouseOut", () => {
@@ -403,12 +413,8 @@ describe("SidebarNav", () => {
   it("handles default and custom page icons", () => {
     const props = getProps({
       appPages: [
-        { pageName: "streamlit_app", scriptPath: "streamlit_app.py" },
-        {
-          pageName: "my_other_page",
-          scriptPath: "my_other_page.py",
-          icon: "🦈",
-        },
+        { pageName: "streamlit_app" },
+        { pageName: "my_other_page", icon: "🦈" },
       ],
     })
 
@@ -433,7 +439,7 @@ describe("SidebarNav", () => {
   })
 
   it("indicates the current page as active", () => {
-    const props = getProps({ currentPageName: "my_other_page" })
+    const props = getProps({ currentPageScriptHash: "other_page_hash" })
 
     const wrapper = shallow(<SidebarNav {...props} />)
 

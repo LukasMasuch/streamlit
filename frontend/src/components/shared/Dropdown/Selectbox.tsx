@@ -54,7 +54,7 @@ interface SelectOption {
 }
 
 // Add a custom filterOptions method to filter options only based on labels.
-// The baseweb default method filters based on labels or indeces
+// The baseweb default method filters based on labels or indices
 // More details: https://github.com/streamlit/streamlit/issues/1010
 // Also filters using fuzzy search powered by fzy.js. Automatically handles
 // upper/lowercase.
@@ -181,7 +181,57 @@ class Selectbox extends React.PureComponent<Props, State> {
           value={value}
           valueKey="value"
           overrides={{
+            Root: {
+              style: () => ({
+                lineHeight: 1.4,
+              }),
+            },
             Dropdown: { component: VirtualDropdown },
+
+            ControlContainer: {
+              style: () => ({
+                // Baseweb requires long-hand props, short-hand leads to weird bugs & warnings.
+                borderLeftWidth: "1px",
+                borderRightWidth: "1px",
+                borderTopWidth: "1px",
+                borderBottomWidth: "1px",
+              }),
+            },
+
+            IconsContainer: {
+              style: () => ({
+                paddingRight: ".5rem",
+              }),
+            },
+
+            ValueContainer: {
+              style: () => ({
+                // Baseweb requires long-hand props, short-hand leads to weird bugs & warnings.
+                paddingRight: ".5rem",
+                paddingLeft: ".5rem",
+                paddingBottom: ".5rem",
+                paddingTop: ".5rem",
+              }),
+            },
+
+            Input: {
+              style: () => ({
+                lineHeight: 1.4,
+              }),
+            },
+
+            // Nudge the dropdown menu by 1px so the focus state doesn't get cut off
+            Popover: {
+              props: {
+                overrides: {
+                  Body: {
+                    style: () => ({
+                      marginTop: "1px",
+                    }),
+                  },
+                },
+              },
+            },
           }}
         />
       </div>

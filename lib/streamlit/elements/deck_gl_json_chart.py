@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import cast, Any, Dict
+import json
+from typing import Any, Dict, cast
 
 import streamlit
-import json
 from streamlit.proto.DeckGlJsonChart_pb2 import DeckGlJsonChart as PydeckProto
 from streamlit.scriptrunner.script_run_context import track_fingerprint
 
@@ -49,15 +49,15 @@ class PydeckMixin:
 
         Example
         -------
-        Here's a chart using a HexagonLayer and a ScatterplotLayer on top of
-        the light map style:
+        Here's a chart using a HexagonLayer and a ScatterplotLayer. It uses either the
+        light or dark map style, based on which Streamlit theme is currently active:
 
         >>> df = pd.DataFrame(
         ...    np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],
         ...    columns=['lat', 'lon'])
         >>>
         >>> st.pydeck_chart(pdk.Deck(
-        ...     map_style='mapbox://styles/mapbox/light-v9',
+        ...     map_style=None,
         ...     initial_view_state=pdk.ViewState(
         ...         latitude=37.76,
         ...         longitude=-122.4,
@@ -86,8 +86,12 @@ class PydeckMixin:
         ... ))
 
         .. output::
-           https://static.streamlit.io/0.25.0-2JkNY/index.html?id=ASTdExBpJ1WxbGceneKN1i
+           https://doc-pydeck-chart.streamlitapp.com/
            height: 530px
+
+        .. note::
+           To make the PyDeck chart's style consistent with Streamlit's theme,
+           you can set ``map_style=None`` in the ``pydeck.Deck`` object.
 
         """
         pydeck_proto = PydeckProto()
@@ -102,7 +106,7 @@ class PydeckMixin:
 
 # Map used when no data is passed.
 EMPTY_MAP: Dict[str, Any] = {
-    "initialViewState": {"latitude": 0, "longitude": 0, "pitch": 0, "zoom": 1}
+    "initialViewState": {"latitude": 0, "longitude": 0, "pitch": 0, "zoom": 1},
 }
 
 

@@ -16,9 +16,9 @@ import unittest
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
-from streamlit.scriptrunner import ScriptRunContext
-from streamlit.state import SafeSessionState, SessionState
-from streamlit.uploaded_file_manager import UploadedFileManager
+from streamlit.runtime.scriptrunner import ScriptRunContext
+from streamlit.runtime.state import SafeSessionState, SessionState
+from streamlit.runtime.uploaded_file_manager import UploadedFileManager
 
 
 class ScriptRunContextTest(unittest.TestCase):
@@ -28,11 +28,12 @@ class ScriptRunContextTest(unittest.TestCase):
         fake_enqueue = lambda msg: None
         ctx = ScriptRunContext(
             session_id="TestSessionID",
-            enqueue=fake_enqueue,
+            _enqueue=fake_enqueue,
             query_string="",
             session_state=SafeSessionState(SessionState()),
             uploaded_file_mgr=UploadedFileManager(),
-            page_name="",
+            page_script_hash="",
+            user_info={"email": "test@test.com"},
         )
 
         msg = ForwardMsg()
@@ -49,11 +50,12 @@ class ScriptRunContextTest(unittest.TestCase):
         fake_enqueue = lambda msg: None
         ctx = ScriptRunContext(
             session_id="TestSessionID",
-            enqueue=fake_enqueue,
+            _enqueue=fake_enqueue,
             query_string="",
             session_state=SafeSessionState(SessionState()),
             uploaded_file_mgr=UploadedFileManager(),
-            page_name="",
+            page_script_hash="",
+            user_info={"email": "test@test.com"},
         )
 
         ctx.on_script_start()
@@ -74,11 +76,12 @@ class ScriptRunContextTest(unittest.TestCase):
         fake_enqueue = lambda msg: None
         ctx = ScriptRunContext(
             session_id="TestSessionID",
-            enqueue=fake_enqueue,
+            _enqueue=fake_enqueue,
             query_string="",
             session_state=SafeSessionState(SessionState()),
             uploaded_file_mgr=UploadedFileManager(),
-            page_name="",
+            page_script_hash="",
+            user_info={"email": "test@test.com"},
         )
 
         ctx.on_script_start()
@@ -98,11 +101,12 @@ class ScriptRunContextTest(unittest.TestCase):
         fake_enqueue = lambda msg: None
         ctx = ScriptRunContext(
             session_id="TestSessionID",
-            enqueue=fake_enqueue,
+            _enqueue=fake_enqueue,
             query_string="",
             session_state=SafeSessionState(SessionState()),
             uploaded_file_mgr=UploadedFileManager(),
-            page_name="",
+            page_script_hash="",
+            user_info={"email": "test@test.com"},
         )
 
         ctx.on_script_start()

@@ -22,8 +22,8 @@ import streamlit
 from streamlit import config
 from streamlit.logger import get_logger
 from streamlit.proto.FileUploader_pb2 import FileUploader as FileUploaderProto
-from streamlit.scriptrunner import ScriptRunContext, get_script_run_ctx
-from streamlit.state import (
+from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
+from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,
     WidgetCallback,
@@ -34,7 +34,7 @@ from ..proto.Common_pb2 import (
     FileUploaderState as FileUploaderStateProto,
     UploadedFileInfo as UploadedFileInfoProto,
 )
-from ..uploaded_file_manager import UploadedFile, UploadedFileRec
+from streamlit.runtime.uploaded_file_manager import UploadedFile, UploadedFileRec
 from .utils import check_callback_rules, check_session_state_rules
 
 LOGGER = get_logger(__name__)
@@ -232,7 +232,7 @@ class FileUploaderMixin:
         ...     st.write(bytes_data)
 
         .. output::
-           https://share.streamlit.io/streamlit/docs/main/python/api-examples-source/widget.file_uploader.py
+           https://doc-file-uploader.streamlitapp.com/
            height: 375px
 
         """
@@ -331,7 +331,7 @@ class FileUploaderMixin:
         # FileUploader's widget value is a list of file IDs
         # representing the current set of files that this uploader should
         # know about.
-        widget_value, _ = register_widget(
+        widget_state = register_widget(
             "file_uploader",
             file_uploader_proto,
             user_key=key,
@@ -347,7 +347,7 @@ class FileUploaderMixin:
         # the following proto fields to affect a widget's ID.
         file_uploader_proto.disabled = disabled
 
-        file_uploader_state = serialize_file_uploader(widget_value)
+        file_uploader_state = serialize_file_uploader(widget_state.value)
         uploaded_file_info = file_uploader_state.uploaded_file_info
         if ctx is not None and len(uploaded_file_info) != 0:
             newest_file_id = file_uploader_state.max_file_id
@@ -361,7 +361,7 @@ class FileUploaderMixin:
             )
 
         self.dg._enqueue("file_uploader", file_uploader_proto)
-        return cast(SomeUploadedFiles, widget_value)
+        return widget_state.value
 
     @staticmethod
     def _get_file_recs(
