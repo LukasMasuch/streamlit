@@ -21,7 +21,7 @@ import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.TextArea_pb2 import TextArea as TextAreaProto
 from streamlit.proto.TextInput_pb2 import TextInput as TextInputProto
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,

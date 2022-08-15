@@ -19,7 +19,7 @@ from typing_extensions import TypeAlias, Literal
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Metric_pb2 import Metric as MetricProto
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 
 from .utils import clean_text
 

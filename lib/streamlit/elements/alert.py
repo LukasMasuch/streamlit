@@ -16,7 +16,7 @@ from typing import cast, Optional, TYPE_CHECKING
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Alert_pb2 import Alert as AlertProto
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from streamlit.string_util import is_emoji
 from .utils import clean_text
 

@@ -23,7 +23,7 @@ from streamlit import config
 from streamlit.errors import StreamlitDeprecationWarning
 from streamlit.logger import get_logger
 from streamlit.proto.Image_pb2 import ImageList as ImageListProto
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure

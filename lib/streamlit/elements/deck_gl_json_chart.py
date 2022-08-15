@@ -17,7 +17,7 @@ from typing import Any, Dict, cast
 
 import streamlit
 from streamlit.proto.DeckGlJsonChart_pb2 import DeckGlJsonChart as PydeckProto
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 
 
 class PydeckMixin:

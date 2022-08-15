@@ -17,7 +17,7 @@ import json
 import os
 import threading
 from typing import Any, Dict, Optional, Type, Union
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 
 import streamlit
 from streamlit import type_util

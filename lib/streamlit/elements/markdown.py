@@ -16,7 +16,7 @@ from typing import cast, Optional, TYPE_CHECKING, Union
 
 from streamlit import type_util
 from streamlit.proto.Markdown_pb2 import Markdown as MarkdownProto
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from .utils import clean_text
 
 if TYPE_CHECKING:

@@ -30,7 +30,7 @@ from typing import (
 import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.MultiSelect_pb2 import MultiSelect as MultiSelectProto
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, OptionSequence, ensure_indexable, is_type, to_key
 

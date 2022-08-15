@@ -16,7 +16,7 @@ import json
 from typing import Any, cast, TYPE_CHECKING
 
 from streamlit.proto.Json_pb2 import Json as JsonProto
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from streamlit.runtime.state import SessionStateProxy
 from streamlit.user_info import UserInfoProxy
 

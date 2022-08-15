@@ -50,7 +50,7 @@ from streamlit.error_util import handle_uncaught_app_exception
 from streamlit.errors import StreamlitAPIWarning
 from streamlit.logger import get_logger
 from streamlit.runtime.stats import CacheStat, CacheStatsProvider
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from .hashing import update_hash, HashFuncsDict, HashReason
 
 _LOGGER = get_logger(__name__)

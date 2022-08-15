@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from datetime import date, time, datetime, timedelta, timezone
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from typing import Any, List, cast, Optional

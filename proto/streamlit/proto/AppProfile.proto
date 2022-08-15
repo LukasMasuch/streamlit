@@ -21,6 +21,7 @@ message AppProfile {
   repeated Fingerprint fingerprints = 1;
   float exec_time = 2;
   float prep_time = 3;
+  repeated string imported_modules = 4;
   // uncaught_exception
 }
 

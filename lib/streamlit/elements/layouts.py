@@ -17,7 +17,7 @@ from typing import cast, List, Sequence, TYPE_CHECKING, Union, Optional
 from streamlit.beta_util import function_beta_warning
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Block_pb2 import Block as BlockProto
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator

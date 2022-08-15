@@ -19,7 +19,7 @@ from typing import Dict
 from typing import cast, Optional, TYPE_CHECKING, Union, Sequence
 
 from streamlit import config
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 
 if TYPE_CHECKING:
     from .arrow import Data

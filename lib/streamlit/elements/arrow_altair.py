@@ -41,7 +41,6 @@ from streamlit import type_util
 from streamlit.proto.ArrowVegaLiteChart_pb2 import (
     ArrowVegaLiteChart as ArrowVegaLiteChartProto,
 )
-from streamlit.scriptrunner.script_run_context import track_fingerprint
 
 from .arrow import Data
 from .utils import last_index_for_melted_dataframes

@@ -22,7 +22,7 @@ from streamlit import type_util
 from streamlit.errors import StreamlitAPIException
 from streamlit.logger import get_logger
 from streamlit.proto.GraphVizChart_pb2 import GraphVizChart as GraphVizChartProto
-from streamlit.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 
 LOGGER = get_logger(__name__)
 

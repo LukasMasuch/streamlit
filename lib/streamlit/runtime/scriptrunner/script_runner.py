@@ -18,7 +18,7 @@ import threading
 import types
 from contextlib import contextmanager
 from enum import Enum
-from typing import Optional, Callable, List, Dict
+from typing import Optional, Callable, List, Dict, Set
 from timeit import default_timer as timer
 
 from blinker import Signal
@@ -33,6 +33,7 @@ from streamlit.proto.ClientState_pb2 import ClientState
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.runtime.in_memory_file_manager import in_memory_file_manager
 from streamlit.runtime.uploaded_file_manager import UploadedFileManager
+from streamlit.telemetry import CaptureImportedModules
 from streamlit.runtime.state import (
     SessionState,
     SCRIPT_RUN_WITHOUT_ERRORS_KEY,
@@ -285,6 +286,7 @@ class ScriptRunner:
             uploaded_file_mgr=self._uploaded_file_mgr,
             page_script_hash=self._client_state.page_script_hash,
             user_info=self._user_info,
+            _fingerprints=[],
         )
         add_script_run_ctx(threading.current_thread(), ctx)
 
@@ -411,6 +413,7 @@ class ScriptRunner:
         LOGGER.debug("Running script %s", rerun_data)
 
         start_time: float = timer()
+        import_capturing = CaptureImportedModules()
 
         # Reset DeltaGenerators, widgets, media files.
         in_memory_file_manager.clear_session_files()
@@ -558,7 +561,8 @@ class ScriptRunner:
 
                 ctx.on_script_start()
                 prep_time = timer() - start_time
-                exec(code, module.__dict__)
+                with import_capturing:
+                    exec(code, module.__dict__)
                 self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = True
         except RerunException as e:
             rerun_exception_data = e.rerun_data
@@ -578,7 +582,10 @@ class ScriptRunner:
 
             if config.get_option("browser.gatherUsageStats"):
                 app_profile_msg = _create_app_profile_message(
-                    ctx._fingerprints, timer() - start_time, prep_time
+                    ctx._fingerprints,
+                    exec_time=timer() - start_time,
+                    prep_time=prep_time,
+                    imported_modules=import_capturing.imported_modules,
                 )
                 ctx.enqueue(app_profile_msg)
             self._on_script_finished(ctx, finished_event)
@@ -645,13 +652,17 @@ class RerunException(ScriptControlException):
 
 
 def _create_app_profile_message(
-    fingerprints: List[Fingerprint], exec_time: float, prep_time: float
+    fingerprints: List[Fingerprint],
+    exec_time: float,
+    prep_time: float,
+    imported_modules: Set[str],
 ) -> ForwardMsg:
     """Create and return an AppProfile ForwardMsg."""
     msg = ForwardMsg()
     msg.app_profile.fingerprints.extend(fingerprints)
     msg.app_profile.exec_time = exec_time
     msg.app_profile.prep_time = prep_time
+    msg.app_profile.imported_modules.extend(imported_modules)
     return msg
 
 

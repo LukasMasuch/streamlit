@@ -46,7 +46,7 @@ For more detailed info, see https://docs.streamlit.io.
 from streamlit import logger as _logger
 from streamlit import config as _config
 from streamlit.proto.RootContainer_pb2 import RootContainer
-from streamlit.runtime.scriptrunner.script_run_context import track_fingerprint
+from streamlit.telemetry import track_fingerprint
 from streamlit.runtime.secrets import Secrets, SECRETS_FILE_LOC
 
 _LOGGER = _logger.get_logger("root")
@@ -394,8 +394,8 @@ def experimental_set_query_params(**query_params: Any) -> None:
     ctx.enqueue(msg)
 
 
-@track_fingerprint
 @_contextlib.contextmanager
+@track_fingerprint
 def spinner(text: str = "In progress...") -> Iterator[None]:
     """Temporarily displays a message while executing a block of code.
 
