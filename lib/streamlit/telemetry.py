@@ -23,10 +23,6 @@ def _to_microseconds(seconds):
     return int(seconds * 1000000)
 
 
-def _get_top_level_module(full_module_name):
-    return full_module_name.split(".")[0]
-
-
 def get_type_name(obj: object) -> str:
     with contextlib.suppress(Exception):
         obj_type = type(obj)
