@@ -83,11 +83,14 @@ from streamlit.proto import ForwardMsg_pb2 as _ForwardMsg_pb2
 # syntax pass mypy checking with implicit_reexport disabled.
 
 from streamlit.echo import echo as echo
-from streamlit.runtime.legacy_caching import cache as cache
+from streamlit.runtime.legacy_caching import cache as _cache
+
 from streamlit.runtime.caching import (
     singleton as experimental_singleton,
     memo as experimental_memo,
 )
+
+cache = track_fingerprint(_cache)
 
 # This is set to True inside cli._main_run(), and is False otherwise.
 # If False, we should assume that DeltaGenerator functions are effectively
@@ -212,6 +215,7 @@ beta_expander = track_fingerprint(_main.beta_expander)
 beta_columns = track_fingerprint(_main.beta_columns)
 
 
+@track_fingerprint
 def set_option(key: str, value: Any) -> None:
     """Set config option.
 
@@ -394,8 +398,8 @@ def experimental_set_query_params(**query_params: Any) -> None:
     ctx.enqueue(msg)
 
 
+# TODO: Do not add fingerprinting here?
 @_contextlib.contextmanager
-@track_fingerprint
 def spinner(text: str = "In progress...") -> Iterator[None]:
     """Temporarily displays a message while executing a block of code.
 
@@ -456,6 +460,7 @@ def spinner(text: str = "In progress...") -> Iterator[None]:
                 message.empty()
 
 
+@track_fingerprint
 def _transparent_write(*args: Any) -> Any:
     """This is just st.write, but returns the arguments you passed to it."""
     write(*args)
@@ -496,6 +501,7 @@ def _maybe_print_use_warning() -> None:
             )
 
 
+# TODO: Do not add fingerprinting here?
 def stop() -> NoReturn:
     """Stops execution immediately.
 
@@ -516,6 +522,7 @@ def stop() -> NoReturn:
     raise StopException()
 
 
+# TODO: Do not add fingerprinting here?
 def experimental_rerun() -> NoReturn:
     """Rerun the script immediately.
 

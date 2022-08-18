@@ -29,6 +29,7 @@ FloatOrInt: TypeAlias = Union[int, float]
 
 
 class ProgressMixin:
+    # TODO: Do not track fingerprint? @track_fingerprint
     def progress(self, value: FloatOrInt) -> "DeltaGenerator":
         """Display a progress bar.
 

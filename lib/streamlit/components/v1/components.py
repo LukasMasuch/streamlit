@@ -43,7 +43,6 @@ class MarshallComponentException(StreamlitAPIException):
 class CustomComponent:
     """A Custom Component declaration."""
 
-    @track_fingerprint
     def __init__(
         self,
         name: str,
@@ -242,7 +241,6 @@ And if you're using Streamlit Cloud, add "pyarrow" to your requirements.txt."""
         return f"'{self.name}': {self.path if self.path is not None else self.url}"
 
 
-@track_fingerprint
 def declare_component(
     name: str,
     path: Optional[str] = None,
@@ -326,7 +324,6 @@ class ComponentRegistry:
     def __repr__(self) -> str:
         return util.repr_(self)
 
-    @track_fingerprint
     def register_component(self, component: CustomComponent) -> None:
         """Register a CustomComponent.
 

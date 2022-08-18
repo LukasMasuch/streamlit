@@ -433,6 +433,7 @@ class MemoCache(Cache):
         except pickle.UnpicklingError as exc:
             raise CacheError(f"Failed to unpickle {key}") from exc
 
+    @track_fingerprint
     def write_result(self, key: str, value: Any, messages: List[MsgData]) -> None:
         """Write a value and associated messages to the cache.
         The value must be pickleable.

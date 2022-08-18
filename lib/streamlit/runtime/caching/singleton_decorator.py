@@ -274,6 +274,7 @@ class SingletonCache(Cache):
             else:
                 raise CacheKeyNotFoundError()
 
+    @track_fingerprint
     def write_result(self, key: str, value: Any, messages: List[MsgData]) -> None:
         """Write a value and associated messages to the cache."""
         main_id = st._main.id

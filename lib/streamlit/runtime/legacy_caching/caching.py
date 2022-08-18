@@ -393,7 +393,6 @@ def cache(
     ...
 
 
-@track_fingerprint
 def cache(
     func: Optional[F] = None,
     persist: bool = False,

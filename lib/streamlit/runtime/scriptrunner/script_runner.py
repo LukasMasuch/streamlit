@@ -28,12 +28,11 @@ from streamlit import source_util
 from streamlit import util
 from streamlit.error_util import handle_uncaught_app_exception
 from streamlit.logger import get_logger
-from streamlit.proto.AppProfile_pb2 import Fingerprint
+from streamlit.proto.PageProfile_pb2 import Fingerprint
 from streamlit.proto.ClientState_pb2 import ClientState
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.runtime.in_memory_file_manager import in_memory_file_manager
 from streamlit.runtime.uploaded_file_manager import UploadedFileManager
-from streamlit.telemetry import CaptureImportedModules
 from streamlit.runtime.state import (
     SessionState,
     SCRIPT_RUN_WITHOUT_ERRORS_KEY,
@@ -286,7 +285,7 @@ class ScriptRunner:
             uploaded_file_mgr=self._uploaded_file_mgr,
             page_script_hash=self._client_state.page_script_hash,
             user_info=self._user_info,
-            _fingerprints=[],
+            track_fingerprints=bool(config.get_option("browser.gatherUsageStats")),
         )
         add_script_run_ctx(threading.current_thread(), ctx)
 
@@ -413,7 +412,6 @@ class ScriptRunner:
         LOGGER.debug("Running script %s", rerun_data)
 
         start_time: float = timer()
-        import_capturing = CaptureImportedModules()
 
         # Reset DeltaGenerators, widgets, media files.
         in_memory_file_manager.clear_session_files()
@@ -561,8 +559,7 @@ class ScriptRunner:
 
                 ctx.on_script_start()
                 prep_time = timer() - start_time
-                with import_capturing:
-                    exec(code, module.__dict__)
+                exec(code, module.__dict__)
                 self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = True
         except RerunException as e:
             rerun_exception_data = e.rerun_data
@@ -580,14 +577,15 @@ class ScriptRunner:
             else:
                 finished_event = ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
 
-            if config.get_option("browser.gatherUsageStats"):
-                app_profile_msg = _create_app_profile_message(
-                    ctx._fingerprints,
-                    exec_time=timer() - start_time,
-                    prep_time=prep_time,
-                    imported_modules=import_capturing.imported_modules,
+            if ctx.track_fingerprints:
+                # Create and send page profile information
+                ctx.enqueue(
+                    _create_page_profile_message(
+                        ctx._fingerprints,
+                        exec_time=int((timer() - start_time) * 100000),
+                        prep_time=int(prep_time * 100000),
+                    )
                 )
-                ctx.enqueue(app_profile_msg)
             self._on_script_finished(ctx, finished_event)
 
         # Use _log_if_error() to make sure we never ever ever stop running the
@@ -651,18 +649,29 @@ class RerunException(ScriptControlException):
         return util.repr_(self)
 
 
-def _create_app_profile_message(
+def _create_page_profile_message(
     fingerprints: List[Fingerprint],
-    exec_time: float,
-    prep_time: float,
-    imported_modules: Set[str],
+    exec_time: int,
+    prep_time: int,
 ) -> ForwardMsg:
-    """Create and return an AppProfile ForwardMsg."""
+    """Create and return an PageProfile ForwardMsg."""
+    config_options: Set[str] = set()
+    if config._config_options:
+        for option_name in config._config_options.keys():
+            config_option = config._config_options[option_name]
+            if config_option.where_defined not in [
+                config_option.DEFAULT_DEFINITION,
+                config_option.STREAMLIT_DEFINITION,
+            ]:
+                if config_option.is_default:
+                    option_name = f"{option_name}:default"
+                config_options.add(option_name)
+
     msg = ForwardMsg()
-    msg.app_profile.fingerprints.extend(fingerprints)
-    msg.app_profile.exec_time = exec_time
-    msg.app_profile.prep_time = prep_time
-    msg.app_profile.imported_modules.extend(imported_modules)
+    msg.page_profile.fingerprints.extend(fingerprints)
+    msg.page_profile.exec_time = exec_time
+    msg.page_profile.prep_time = prep_time
+    msg.page_profile.config.extend(config_options)
     return msg
 
 

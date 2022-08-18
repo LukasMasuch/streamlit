@@ -23,7 +23,7 @@ from streamlit.logger import get_logger
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.runtime.state import SafeSessionState
 from streamlit.runtime.uploaded_file_manager import UploadedFileManager
-from streamlit.proto.AppProfile_pb2 import Fingerprint
+from streamlit.proto.PageProfile_pb2 import Fingerprint
 
 LOGGER: Final = get_logger(__name__)
 
@@ -50,8 +50,9 @@ class ScriptRunContext:
     uploaded_file_mgr: UploadedFileManager
     page_script_hash: str
     user_info: UserInfo
-    _fingerprints: List[Fingerprint]
+    track_fingerprints: bool
 
+    _fingerprints: List[Fingerprint] = field(default_factory=list)
     _set_page_config_allowed: bool = True
     _has_script_started: bool = False
     widget_ids_this_run: Set[str] = field(default_factory=set)

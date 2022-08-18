@@ -8,12 +8,14 @@ import importlib
 from collections.abc import Sized
 from functools import wraps
 from timeit import default_timer as timer
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Any
 
 from streamlit.logger import get_logger
-from streamlit.proto.AppProfile_pb2 import Argument, Fingerprint
+from streamlit.proto.PageProfile_pb2 import Argument, Fingerprint
 
 LOGGER = get_logger(__name__)
+
+MAX_FINGERPRINTS = 250
 
 # Generated from: https://docs.python.org/3.10/py-modindex.html
 _TOP_LEVEL_BUILTIN_MODULES = [
@@ -250,6 +252,10 @@ _TYPE_MAPPING = {
 }
 
 
+def _to_microseconds(seconds):
+    return int(seconds * 1000000)
+
+
 def _get_top_level_module(full_module_name):
     return full_module_name.split(".")[0]
 
@@ -336,52 +342,54 @@ def get_callable_name(callable: Callable) -> str:
     return "failed"
 
 
-def get_arg_metadata(arg: object) -> Tuple[Optional[str], Optional[str]]:
-    if isinstance(arg, bool):
-        with contextlib.suppress(Exception):
-            return "value", str(arg)
+def get_arg_metadata(arg: object) -> Optional[str]:
+    with contextlib.suppress(Exception):
+        if isinstance(arg, bool):
+            return f"value:{str(arg)}"
 
-    if isinstance(arg, enum.Enum):
-        with contextlib.suppress(Exception):
-            return "value", str(arg)
+        if isinstance(arg, int):
+            return f"value:{str(arg)}"
 
-    if isinstance(arg, Sized):
-        with contextlib.suppress(Exception):
-            return "length", str(len(arg))
+        if isinstance(arg, enum.Enum):
+            return f"value:{str(arg)}"
 
-    return None, None
+        if isinstance(arg, Sized):
+            return f"length:{str(len(arg))}"
+
+    return None
 
 
 def track_fingerprint(callable: Callable) -> Callable:
-    from streamlit.runtime.scriptrunner import get_script_run_ctx
-
     @wraps(callable)
     def wrap(*args, **kwargs):
         exec_start = timer()
         result = callable(*args, **kwargs)
 
-        # Suppress all exceptions, since we want to make sure that the telemetry
-        # never causes any issues.
         try:
             fingerprint_exec_start = timer()
-            ctx = get_script_run_ctx()
+            # Import here to avoid circular dependency
+            from streamlit.runtime.scriptrunner import get_script_run_ctx
 
-            # Todo: ignore self
+            ctx = get_script_run_ctx()
+            if not ctx.track_fingerprints or len(ctx._fingerprints) > MAX_FINGERPRINTS:
+                # Only track the first X fingerprints to prevent too much memory usage
+                return result
+
             arg_keywords = inspect.getfullargspec(callable).args
-            self_arg_type: Optional[str] = None
+            self_arg: Optional[Any] = None
             arguments: List[Argument] = []
+
             for i, arg in enumerate(args):
                 keyword = arg_keywords[i] if len(arg_keywords) > i else f"{i}"
                 if keyword == "self":
-                    self_arg_type = get_type_name(arg)
+                    self_arg = arg
                     # Do not add self arguments
                     continue
                 arguments.append(
                     Argument(
                         keyword=keyword,
                         type=get_type_name(arg),
-                        metadata_type=get_arg_metadata(arg)[0],
-                        metadata=get_arg_metadata(arg)[1],
+                        metadata=get_arg_metadata(arg),
                         position=i,
                     )
                 )
@@ -391,34 +399,36 @@ def track_fingerprint(callable: Callable) -> Callable:
                     Argument(
                         keyword=kwarg,
                         type=get_type_name(kwargs[kwarg]),
-                        metadata_type=get_arg_metadata(kwargs[kwarg])[0],
-                        metadata=get_arg_metadata(kwargs[kwarg])[1],
+                        metadata=get_arg_metadata(kwargs[kwarg]),
                     )
                     for kwarg in kwargs
                 ]
             )
 
-            modulenames = set(sys.modules) & set(globals())
-            allmodules = [sys.modules[name] for name in modulenames]
-            debug_str = str(allmodules)
-
             name = get_callable_name(callable)
-            if name == "CustomComponent.create_instance" and self_arg_type:
-                name = self_arg_type.rsplit(".", 1)[-1]
+            if (
+                name == "create_instance"
+                and self_arg
+                and hasattr(self_arg, "name")
+                and self_arg.name
+            ):
+                # Get custom component name
+                name = str(self_arg.name)
 
             ctx.add_fingerprint(
                 Fingerprint(
                     name=name,
-                    arguments=arguments,
-                    return_type=get_type_name(result),
-                    exec_time=float(timer() - exec_start),
-                    debug_stuff=debug_str,
-                    fingerprint_exec_time=float(timer() - fingerprint_exec_start),
+                    args=arguments,
+                    exec_time=_to_microseconds(timer() - exec_start),
+                    fingerprint_exec_time=_to_microseconds(
+                        timer() - fingerprint_exec_start
+                    ),
                 )
             )
         except Exception as ex:
+            # Always capture all exceptions since we want to make sure that
+            # the telemetry never causes any issues.
             LOGGER.debug("Failed to collect fingerprints", exc_info=ex)
-            pass
         return result
 
     return wrap
