@@ -60,16 +60,16 @@ def get_callable_name(callable: Callable) -> str:
 def get_arg_metadata(arg: object) -> Optional[str]:
     with contextlib.suppress(Exception):
         if isinstance(arg, bool):
-            return f"value:{str(arg)}"
+            return f"value:{arg}"
 
         if isinstance(arg, int):
-            return f"value:{str(arg)}"
+            return f"value:{arg}"
 
         if isinstance(arg, enum.Enum):
-            return f"value:{str(arg)}"
+            return f"value:{arg}"
 
         if isinstance(arg, Sized):
-            return f"length:{str(len(arg))}"
+            return f"length:{len(arg)}"
 
     return None
 
@@ -94,6 +94,7 @@ def track_fingerprint(callable: Callable) -> Callable:
             self_arg: Optional[Any] = None
             arguments: List[Argument] = []
 
+            # Add positional arguments
             for i, arg in enumerate(args):
                 keyword = arg_keywords[i] if len(arg_keywords) > i else f"{i}"
                 if keyword == "self":
@@ -109,6 +110,7 @@ def track_fingerprint(callable: Callable) -> Callable:
                     )
                 )
 
+            # Add keyword arguments
             arguments.extend(
                 [
                     Argument(
