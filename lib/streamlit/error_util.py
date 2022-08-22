@@ -16,7 +16,6 @@ import streamlit as st
 from streamlit import config
 from streamlit.logger import get_logger
 from streamlit.errors import UncaughtAppException
-from streamlit.telemetry import track_fingerprint
 
 LOGGER = get_logger(__name__)
 
@@ -67,7 +66,6 @@ def _print_rich_exception(e: BaseException):
     )
 
 
-@track_fingerprint
 def handle_uncaught_app_exception(e: BaseException) -> None:
     """Handle an exception that originated from a user app.
     By default, we show exceptions directly in the browser. However,
