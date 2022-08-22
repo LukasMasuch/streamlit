@@ -15,12 +15,15 @@ LOGGER = get_logger(__name__)
 # Limit the number of fingerprints to keep the page profile message small
 # Segment allows a maximum of 32kb per event.
 MAX_FINGERPRINTS = 150
-TYPE_MAPPING = {
+NAME_MAPPING = {
     "streamlit.delta_generator.DeltaGenerator": "DG",
     "pandas.core.frame.DataFrame": "DataFrame",
     "plotly.graph_objs._figure.Figure": "PlotlyFigure",
     "bokeh.plotting.figure.Figure": "BokehFigure",
     "matplotlib.figure.Figure": "MatplotlibFigure",
+    "MemoAPI": "memo",
+    "SingletonAPI": "singleton",
+    "_transparent_write": "magic",
 }
 
 
@@ -36,8 +39,8 @@ def _get_type_name(obj: object) -> str:
         else:
             type_name = f"{obj_type.__module__}.{obj_type.__qualname__}"
 
-        if type_name in TYPE_MAPPING:
-            type_name = TYPE_MAPPING[type_name]
+        if type_name in NAME_MAPPING:
+            type_name = NAME_MAPPING[type_name]
         return type_name
     return "failed"
 
@@ -121,7 +124,8 @@ def _get_fingerprint(callable: Callable, *args, **kwargs) -> Fingerprint:
     ):
         # Use custom component name
         name = f"component:{self_arg.name}"
-
+    if name in NAME_MAPPING:
+        name = NAME_MAPPING[name]
     return Fingerprint(name=name, args=arguments)
 
 
