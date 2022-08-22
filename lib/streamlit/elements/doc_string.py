@@ -125,15 +125,9 @@ def _get_signature(f):
     is_delta_gen = False
     try:
         is_delta_gen = f.__module__ == "streamlit.delta_generator"
-
-        if is_delta_gen:
-            # DeltaGenerator functions are doubly wrapped, and their function
-            # signatures are useless unless we unwrap them.
-            f = _unwrap_decorated_func(f)
-
-    # Functions such as numpy.minimum don't have a __module__ attribute,
-    # since we're only using it to check if its a DeltaGenerator, its ok
-    # to continue
+        # Functions such as numpy.minimum don't have a __module__ attribute,
+        # since we're only using it to check if its a DeltaGenerator, its ok
+        # to continue
     except AttributeError:
         pass
 
@@ -152,20 +146,3 @@ def _get_signature(f):
                 break
 
     return sig
-
-
-def _unwrap_decorated_func(f):
-    if hasattr(f, "__wrapped__"):
-        try:
-            while getattr(f, "__wrapped__"):
-                contents = f.__wrapped__
-                if not callable(contents):
-                    break
-                f = contents
-            return f
-        except AttributeError:
-            pass
-
-    # Fall back to original function, though it's unlikely we'll reach
-    # this part of the code.
-    return f
