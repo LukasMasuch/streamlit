@@ -71,7 +71,7 @@ import {
   IGitInfo,
   GitInfo,
   IAppPage,
-  AppProfile,
+  PageProfile,
   AppPage,
 } from "src/autogen/proto"
 import { without, concat } from "lodash"
@@ -80,7 +80,7 @@ import { RERUN_PROMPT_MODAL_DIALOG } from "src/lib/baseconsts"
 import { SessionInfo } from "src/lib/SessionInfo"
 import { MetricsManager } from "src/lib/MetricsManager"
 import { FileUploadClient } from "src/lib/FileUploadClient"
-import { logError, logMessage } from "src/lib/log"
+import { logError, logMessage, logAlways } from "src/lib/log"
 import { AppRoot } from "src/lib/AppNode"
 
 import { UserSettings } from "src/components/core/StreamlitDialog/UserSettings"
@@ -146,6 +146,7 @@ interface State {
   hideSidebarNav: boolean
   appPages: IAppPage[]
   currentPageScriptHash: string
+  startTime: number
 }
 
 const ELEMENT_LIST_BUFFER_TIMEOUT_MS = 10
@@ -220,6 +221,7 @@ export class App extends PureComponent<Props, State> {
       // true as well for consistency.
       hideTopBar: true,
       hideSidebarNav: true,
+      startTime: performance.now(),
     }
 
     this.sessionEventDispatcher = new SessionEventDispatcher()
@@ -427,7 +429,20 @@ export class App extends PureComponent<Props, State> {
           this.handleGitInfoChanged(gitInfo),
         scriptFinished: (status: ForwardMsg.ScriptFinishedStatus) =>
           this.handleScriptFinished(status),
-        appProfile: (appProfile: AppProfile) => console.log(appProfile),
+        pageProfile: (pageProfile: PageProfile) => {
+          logAlways("debug_pageProfile", pageProfile)
+          MetricsManager.current.enqueue("debug_pageProfile", {
+            ...PageProfile.toObject(pageProfile),
+            numPages: this.state.appPages?.length,
+            sessionId: SessionInfo.current.sessionId,
+            pythonVersion: SessionInfo.current.pythonVersion,
+            pageScriptHash: this.state.currentPageScriptHash,
+            activeTheme: this.props.theme?.activeTheme?.name,
+            totalLoadTime: Math.round(
+              (performance.now() - this.state.startTime) * 1000
+            ),
+          })
+        },
       })
     } catch (e) {
       const err = ensureError(e)
@@ -675,6 +690,7 @@ export class App extends PureComponent<Props, State> {
         hideSidebarNav: config.hideSidebarNav,
         appPages: newSessionProto.appPages,
         currentPageScriptHash: newPageScriptHash,
+        startTime: performance.now(),
       },
       () => {
         this.props.s4aCommunication.sendMessage({
