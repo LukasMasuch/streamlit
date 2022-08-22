@@ -95,7 +95,7 @@ export const initializeSegment = (): void => {
   // Load Analytics.js with your key, which will automatically
   // load the tools you've enabled for your account. Boosh!
 
-  analytics.load("iCkMy7ymtJ9qYzQRXkQpnAJEq7D4NyMU")
+  analytics.load("iCkMy7ymtJ9qYzQRXkQpnAJEq7D4NyMU") // hN6MegBLEEo9HHLTYsVs0dnfl4MbYIcO
 }
 
 /* eslint-enable */

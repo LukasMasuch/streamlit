@@ -198,6 +198,7 @@ export class MetricsManager {
     // for all of them.
     if (IS_DEV_ENV) {
       logAlways("[Dev mode] Not tracking stat datapoint: ", evName, data)
+      this.track(evName, data) // TODO: remove this again
     } else {
       this.track(evName, data)
     }
@@ -215,6 +216,7 @@ export class MetricsManager {
   private identify(id: string, data: Record<string, unknown>): void {
     if (IS_DEV_ENV) {
       logAlways("[Dev mode] Not sending id: ", id, data)
+      analytics.identify(id, data) // TODO: remove this again
     } else {
       analytics.identify(id, data)
     }
