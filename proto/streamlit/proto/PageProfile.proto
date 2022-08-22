@@ -22,18 +22,18 @@ message PageProfile {
   int64 exec_time = 2;
   int64 prep_time = 3;
   repeated string config = 5;
+  optional string uncaught_exception = 6;
 }
 
 message Argument {
-	string keyword = 1;
+	string name = 1;
 	string type = 2;
-	optional string metadata = 3;
-  optional int32 position = 5;
+	optional string meta = 3;
+  optional int32 pos = 5;
 }
 
 message Fingerprint {
   string name = 1;
   repeated Argument args = 2;
   int64 exec_time = 4;
-  int64 fingerprint_exec_time = 6;
 }
