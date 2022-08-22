@@ -302,8 +302,9 @@ def experimental_show(*args: Any) -> None:
             warning("`show` not enabled in the shell")
             return
 
-        if current_frame.f_back is not None:
-            lines = inspect.getframeinfo(current_frame.f_back)[3]
+        # Use two f_back because of telemetry decorator
+        if current_frame.f_back is not None and current_frame.f_back.f_back is not None:
+            lines = inspect.getframeinfo(current_frame.f_back.f_back)[3]
         else:
             lines = None
 
