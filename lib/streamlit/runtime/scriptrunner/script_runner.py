@@ -285,7 +285,7 @@ class ScriptRunner:
             uploaded_file_mgr=self._uploaded_file_mgr,
             page_script_hash=self._client_state.page_script_hash,
             user_info=self._user_info,
-            track_fingerprints=bool(config.get_option("browser.gatherUsageStats")),
+            gather_usage_stats=bool(config.get_option("browser.gatherUsageStats")),
         )
         add_script_run_ctx(threading.current_thread(), ctx)
 
@@ -421,6 +421,7 @@ class ScriptRunner:
         # Safe because pages will at least contain the app's main page.
         main_page_info = list(pages.values())[0]
         current_page_info = None
+        uncaught_exception = None
 
         if rerun_data.page_script_hash:
             current_page_info = pages.get(rerun_data.page_script_hash, None)
@@ -569,7 +570,8 @@ class ScriptRunner:
 
         except BaseException as e:
             self._session_state[SCRIPT_RUN_WITHOUT_ERRORS_KEY] = False
-            handle_uncaught_app_exception(e)
+            uncaught_exception = e
+            handle_uncaught_app_exception(uncaught_exception)
 
         finally:
             if rerun_exception_data:
@@ -577,13 +579,16 @@ class ScriptRunner:
             else:
                 finished_event = ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
 
-            if ctx.track_fingerprints:
+            if ctx.gather_usage_stats:
                 # Create and send page profile information
                 ctx.enqueue(
                     _create_page_profile_message(
                         ctx._fingerprints,
-                        exec_time=int((timer() - start_time) * 100000),
-                        prep_time=int(prep_time * 100000),
+                        exec_time=int((timer() - start_time) * 1000000),
+                        prep_time=int(prep_time * 1000000),
+                        uncaught_exception=type(uncaught_exception).__name__
+                        if uncaught_exception
+                        else None,
                     )
                 )
             self._on_script_finished(ctx, finished_event)
@@ -653,6 +658,7 @@ def _create_page_profile_message(
     fingerprints: List[Fingerprint],
     exec_time: int,
     prep_time: int,
+    uncaught_exception: Optional[str] = None,
 ) -> ForwardMsg:
     """Create and return an PageProfile ForwardMsg."""
     config_options: Set[str] = set()
@@ -672,6 +678,10 @@ def _create_page_profile_message(
     msg.page_profile.exec_time = exec_time
     msg.page_profile.prep_time = prep_time
     msg.page_profile.config.extend(config_options)
+
+    if uncaught_exception:
+        msg.page_profile.uncaught_exception = uncaught_exception
+
     return msg
 
 

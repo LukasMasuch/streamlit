@@ -50,8 +50,9 @@ class ScriptRunContext:
     uploaded_file_mgr: UploadedFileManager
     page_script_hash: str
     user_info: UserInfo
-    track_fingerprints: bool
 
+    gather_usage_stats: bool = False
+    _deactivate_fingerprints: bool = False
     _fingerprints: List[Fingerprint] = field(default_factory=list)
     _set_page_config_allowed: bool = True
     _has_script_started: bool = False
@@ -73,6 +74,7 @@ class ScriptRunContext:
         # Permit set_page_config when the ScriptRunContext is reused on a rerun
         self._set_page_config_allowed = True
         self._has_script_started = False
+        self._deactivate_fingerprints: bool = False
         self._fingerprints = []
 
     def on_script_start(self) -> None:

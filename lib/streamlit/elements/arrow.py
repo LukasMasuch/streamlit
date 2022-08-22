@@ -23,6 +23,7 @@ import pyarrow as pa
 
 from streamlit import type_util
 from streamlit.proto.Arrow_pb2 import Arrow as ArrowProto
+from streamlit.telemetry import track_fingerprint
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -31,6 +32,7 @@ Data = Union[DataFrame, Styler, pa.Table, ndarray, Iterable, Dict[str, List[Any]
 
 
 class ArrowMixin:
+    @track_fingerprint
     def _arrow_dataframe(
         self,
         data: Data = None,
@@ -88,6 +90,7 @@ class ArrowMixin:
             element_height=height,
         )
 
+    @track_fingerprint
     def _arrow_table(self, data: Data = None) -> "DeltaGenerator":
         """Display a static table.
 

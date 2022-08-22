@@ -346,6 +346,7 @@ def _read_from_cache(
         raise e
 
 
+@track_fingerprint
 def _write_to_cache(
     mem_cache: MemCache,
     key: str,
