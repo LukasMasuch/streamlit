@@ -21,8 +21,10 @@ NAME_MAPPING = {
     "plotly.graph_objs._figure.Figure": "PlotlyFigure",
     "bokeh.plotting.figure.Figure": "BokehFigure",
     "matplotlib.figure.Figure": "MatplotlibFigure",
-    "MemoAPI": "memo",
-    "SingletonAPI": "singleton",
+    "MemoAPI": "experimental_memo",
+    "SingletonAPI": "experimental_singleton",
+    "pandas.io.formats.style.Styler": "PandasStyler",
+    "pandas.core.indexes.base.Index": "PandasIndex",
     "_transparent_write": "magic",
 }
 
