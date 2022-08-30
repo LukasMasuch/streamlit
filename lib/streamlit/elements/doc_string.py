@@ -20,7 +20,7 @@ from typing_extensions import Final
 
 from streamlit.proto.DocString_pb2 import DocString as DocStringProto
 from streamlit.logger import get_logger
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -39,7 +39,7 @@ CONFUSING_STREAMLIT_SIG_PREFIXES: Final = ("(element, ",)
 
 
 class HelpMixin:
-    @track_fingerprint
+    @track_telemetry
     def help(self, obj: Any) -> "DeltaGenerator":
         """Display object's doc string, nicely formatted.
 

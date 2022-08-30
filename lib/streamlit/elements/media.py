@@ -16,7 +16,7 @@ import io
 import re
 from typing import cast, Optional, TYPE_CHECKING, Union
 from typing_extensions import Final, TypeAlias
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 from validators import url
 
@@ -39,7 +39,7 @@ Data: TypeAlias = Union[
 
 
 class MediaMixin:
-    @track_fingerprint
+    @track_telemetry
     def audio(
         self,
         data: Data,
@@ -78,7 +78,7 @@ class MediaMixin:
         marshall_audio(coordinates, audio_proto, data, format, start_time)
         return self.dg._enqueue("audio", audio_proto)
 
-    @track_fingerprint
+    @track_telemetry
     def video(
         self,
         data: Data,

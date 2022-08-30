@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 
 class CheckboxMixin:
-    @track_fingerprint
+    @track_telemetry
     def checkbox(
         self,
         label: str,

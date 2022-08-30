@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.type_util import Key, to_key
 from typing import cast, overload, List, Optional, Union
 from textwrap import dedent
@@ -130,7 +130,7 @@ class FileUploaderMixin:
     ) -> Optional[UploadedFile]:
         ...
 
-    @track_fingerprint
+    @track_telemetry
     def file_uploader(
         self,
         label: str,

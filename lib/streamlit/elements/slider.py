@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from datetime import date, time, datetime, timedelta, timezone
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from typing import Any, List, cast, Optional
@@ -36,7 +36,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class SliderMixin:
-    @track_fingerprint
+    @track_telemetry
     def slider(
         self,
         label: str,

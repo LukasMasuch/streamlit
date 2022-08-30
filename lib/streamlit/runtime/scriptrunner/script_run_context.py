@@ -23,7 +23,7 @@ from streamlit.logger import get_logger
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.runtime.state import SafeSessionState
 from streamlit.runtime.uploaded_file_manager import UploadedFileManager
-from streamlit.proto.PageProfile_pb2 import Fingerprint
+from streamlit.proto.PageProfile_pb2 import Command
 
 LOGGER: Final = get_logger(__name__)
 
@@ -52,8 +52,8 @@ class ScriptRunContext:
     user_info: UserInfo
 
     gather_usage_stats: bool = False
-    _deactivate_fingerprints: bool = False
-    _fingerprints: List[Fingerprint] = field(default_factory=list)
+    _tracking_deactivated: bool = False
+    _tracked_commands: List[Command] = field(default_factory=list)
     _set_page_config_allowed: bool = True
     _has_script_started: bool = False
     widget_ids_this_run: Set[str] = field(default_factory=set)
@@ -74,14 +74,11 @@ class ScriptRunContext:
         # Permit set_page_config when the ScriptRunContext is reused on a rerun
         self._set_page_config_allowed = True
         self._has_script_started = False
-        self._deactivate_fingerprints: bool = False
-        self._fingerprints = []
+        self._tracking_deactivated: bool = False
+        self._tracked_commands = []
 
     def on_script_start(self) -> None:
         self._has_script_started = True
-
-    def add_fingerprint(self, fingerprint: Fingerprint):
-        self._fingerprints.append(fingerprint)
 
     def enqueue(self, msg: ForwardMsg) -> None:
         """Enqueue a ForwardMsg for this context's session."""

@@ -23,7 +23,7 @@ from typing import cast, TYPE_CHECKING
 from streamlit import errors, type_util
 from streamlit.proto.VegaLiteChart_pb2 import VegaLiteChart as VegaLiteChartProto
 import streamlit.elements.legacy_vega_lite as vega_lite
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 import altair as alt
 import pandas as pd
 import pyarrow as pa
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 class LegacyAltairMixin:
-    @track_fingerprint
+    @track_telemetry
     def _legacy_line_chart(
         self,
         data: "Data" = None,
@@ -97,7 +97,7 @@ class LegacyAltairMixin:
             "line_chart", vega_lite_chart_proto, last_index=last_index
         )
 
-    @track_fingerprint
+    @track_telemetry
     def _legacy_area_chart(
         self,
         data: "Data" = None,
@@ -153,7 +153,7 @@ class LegacyAltairMixin:
             "area_chart", vega_lite_chart_proto, last_index=last_index
         )
 
-    @track_fingerprint
+    @track_telemetry
     def _legacy_bar_chart(
         self,
         data: "Data" = None,
@@ -209,7 +209,7 @@ class LegacyAltairMixin:
             "bar_chart", vega_lite_chart_proto, last_index=last_index
         )
 
-    @track_fingerprint
+    @track_telemetry
     def _legacy_altair_chart(
         self, altair_chart: "Chart", use_container_width: bool = False
     ) -> "DeltaGenerator":

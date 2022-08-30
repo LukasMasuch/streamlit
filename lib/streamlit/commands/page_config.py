@@ -23,7 +23,7 @@ from streamlit.proto.ForwardMsg_pb2 import ForwardMsg as ForwardProto
 from streamlit.proto.PageConfig_pb2 import PageConfig as PageConfigProto
 from streamlit.elements import image
 from streamlit.errors import StreamlitAPIException
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.util import lower_clean_dict_keys
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ MenuKey: TypeAlias = Literal[_GetHelp, _ReportABug, _About]
 MenuItems: TypeAlias = Mapping[MenuKey, Optional[str]]
 
 
-@track_fingerprint
+@track_telemetry
 def set_page_config(
     page_title: Optional[str] = None,
     page_icon: PageIcon = None,

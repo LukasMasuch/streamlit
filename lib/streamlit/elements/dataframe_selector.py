@@ -19,7 +19,7 @@ from typing import Dict
 from typing import cast, Optional, TYPE_CHECKING, Union, Sequence
 
 from streamlit import config
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     from .arrow import Data
@@ -35,7 +35,7 @@ def _use_arrow() -> bool:
 
 
 class DataFrameSelectorMixin:
-    @track_fingerprint
+    @track_telemetry
     def dataframe(
         self,
         data: "Data" = None,
@@ -98,7 +98,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_dataframe(data, width, height)
 
-    @track_fingerprint
+    @track_telemetry
     def table(self, data: "Data" = None) -> "DeltaGenerator":
         """Display a static table.
 
@@ -132,7 +132,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_table(data)
 
-    @track_fingerprint
+    @track_telemetry
     def line_chart(
         self,
         data: "Data" = None,
@@ -215,7 +215,7 @@ class DataFrameSelectorMixin:
                 use_container_width=use_container_width,
             )
 
-    @track_fingerprint
+    @track_telemetry
     def area_chart(
         self,
         data: "Data" = None,
@@ -298,7 +298,7 @@ class DataFrameSelectorMixin:
                 use_container_width=use_container_width,
             )
 
-    @track_fingerprint
+    @track_telemetry
     def bar_chart(
         self,
         data: "Data" = None,
@@ -382,7 +382,7 @@ class DataFrameSelectorMixin:
                 use_container_width=use_container_width,
             )
 
-    @track_fingerprint
+    @track_telemetry
     def altair_chart(
         self,
         altair_chart: "Chart",
@@ -429,7 +429,7 @@ class DataFrameSelectorMixin:
         else:
             return self.dg._legacy_altair_chart(altair_chart, use_container_width)
 
-    @track_fingerprint
+    @track_telemetry
     def vega_lite_chart(
         self,
         data: "Data" = None,
@@ -499,7 +499,7 @@ class DataFrameSelectorMixin:
                 data, spec, use_container_width, **kwargs
             )
 
-    @track_fingerprint
+    @track_telemetry
     def add_rows(self, data: "Data" = None, **kwargs) -> Optional["DeltaGenerator"]:
         """Concatenate a dataframe to the bottom of the current one.
 

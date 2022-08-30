@@ -18,7 +18,7 @@ from typing import Any, Callable, Optional, cast
 import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Radio_pb2 import Radio as RadioProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.runtime.state import (
     register_widget,
@@ -33,7 +33,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class RadioMixin:
-    @track_fingerprint
+    @track_telemetry
     def radio(
         self,
         label: str,

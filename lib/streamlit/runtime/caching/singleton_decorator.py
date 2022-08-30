@@ -22,7 +22,7 @@ from pympler import asizeof
 
 import streamlit as st
 from streamlit.logger import get_logger
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.stats import CacheStatsProvider, CacheStat
 from .cache_errors import CacheKeyNotFoundError, CacheType
 from .cache_utils import (
@@ -148,7 +148,7 @@ class SingletonAPI:
     # __call__ should be a static method, but there's a mypy bug that
     # breaks type checking for overloaded static functions:
     # https://github.com/python/mypy/issues/7781
-    @track_fingerprint
+    @track_telemetry
     def __call__(
         self,
         func: Optional[F] = None,
@@ -248,7 +248,7 @@ class SingletonAPI:
         )
 
     @staticmethod
-    @track_fingerprint
+    @track_telemetry
     def clear() -> None:
         """Clear all singleton caches."""
         _singleton_caches.clear_all()
@@ -274,7 +274,7 @@ class SingletonCache(Cache):
             else:
                 raise CacheKeyNotFoundError()
 
-    @track_fingerprint
+    @track_telemetry
     def write_result(self, key: str, value: Any, messages: List[MsgData]) -> None:
         """Write a value and associated messages to the cache."""
         main_id = st._main.id

@@ -18,22 +18,26 @@ syntax = "proto3";
 
 
 message PageProfile {
-  repeated Fingerprint fingerprints = 1;
+  repeated Command commands = 1;
   int64 exec_time = 2;
   int64 prep_time = 3;
   repeated string config = 5;
-  optional string uncaught_exception = 6;
+  string uncaught_exception = 6;
 }
 
 message Argument {
-	string name = 1;
-	string type = 2;
-	optional string meta = 3;
-  optional int32 pos = 5;
+  // The keyword of the argument.
+	string k = 1;
+  // The type of the argument.
+	string t = 2;
+  // Some metadata about the argument value.
+	string m = 3;
+  // If positional argument, contains the position
+  int32 p = 5;
 }
 
-message Fingerprint {
+message Command {
   string name = 1;
   repeated Argument args = 2;
-  int64 exec_time = 4;
+  int64 time = 4;
 }

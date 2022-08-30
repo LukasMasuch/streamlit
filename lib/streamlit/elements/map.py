@@ -24,11 +24,11 @@ import streamlit
 import streamlit.elements.deck_gl_json_chart as deck_gl_json_chart
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.DeckGlJsonChart_pb2 import DeckGlJsonChart as DeckGlJsonChartProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 
 class MapMixin:
-    @track_fingerprint
+    @track_telemetry
     def map(self, data=None, zoom=None, use_container_width=True):
         """Display a map with points on it.
 

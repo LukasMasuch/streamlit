@@ -21,7 +21,7 @@ import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.TextArea_pb2 import TextArea as TextAreaProto
 from streamlit.proto.TextInput_pb2 import TextInput as TextInputProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,
@@ -35,7 +35,7 @@ from ..type_util import SupportsStr
 
 
 class TextWidgetsMixin:
-    @track_fingerprint
+    @track_telemetry
     def text_input(
         self,
         label: str,
@@ -200,7 +200,7 @@ class TextWidgetsMixin:
         self.dg._enqueue("text_input", text_input_proto)
         return widget_state.value
 
-    @track_fingerprint
+    @track_telemetry
     def text_area(
         self,
         label: str,

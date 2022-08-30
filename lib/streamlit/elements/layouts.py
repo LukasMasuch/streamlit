@@ -17,7 +17,7 @@ from typing import cast, List, Sequence, TYPE_CHECKING, Union, Optional
 from streamlit.beta_util import function_beta_warning
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Block_pb2 import Block as BlockProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -26,7 +26,7 @@ SpecType = Union[int, Sequence[Union[int, float]]]
 
 
 class LayoutsMixin:
-    @track_fingerprint
+    @track_telemetry
     def container(self) -> "DeltaGenerator":
         """Insert a multi-element container.
 
@@ -71,7 +71,7 @@ class LayoutsMixin:
         return self.dg._block()
 
     # TODO: Enforce that columns are not nested or in Sidebar
-    @track_fingerprint
+    @track_telemetry
     def columns(
         self, spec: SpecType, *, gap: Optional[str] = "small"
     ) -> List["DeltaGenerator"]:
@@ -196,7 +196,7 @@ class LayoutsMixin:
         total_weight = sum(weights)
         return [row._block(column_proto(w / total_weight)) for w in weights]
 
-    @track_fingerprint
+    @track_telemetry
     def tabs(self, tabs: Sequence[str]) -> Sequence["DeltaGenerator"]:
         """Insert containers separated into tabs.
 
@@ -284,7 +284,7 @@ class LayoutsMixin:
         tab_container = self.dg._block(block_proto)
         return tuple(tab_container._block(tab_proto(tab_label)) for tab_label in tabs)
 
-    @track_fingerprint
+    @track_telemetry
     def expander(self, label: str, expanded: bool = False) -> "DeltaGenerator":
         """Insert a multi-element container that can be expanded/collapsed.
 

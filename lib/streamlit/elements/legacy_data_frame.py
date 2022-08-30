@@ -31,7 +31,7 @@ from streamlit.proto.DataFrame_pb2 import (
     DataFrame as DataFrameProto,
     TableStyle as TableStyleProto,
 )
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -45,7 +45,7 @@ class CSSStyle(NamedTuple):
 
 
 class LegacyDataFrameMixin:
-    @track_fingerprint
+    @track_telemetry
     def _legacy_dataframe(
         self,
         data: Data = None,
@@ -110,7 +110,7 @@ class LegacyDataFrameMixin:
             element_height=height,
         )
 
-    @track_fingerprint
+    @track_telemetry
     def _legacy_table(self, data: Data = None) -> "DeltaGenerator":
         """Display a static table.
 

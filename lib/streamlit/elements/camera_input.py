@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
 from typing import Optional, cast, List, TYPE_CHECKING
@@ -45,7 +45,7 @@ SomeUploadedSnapshotFile = Optional[UploadedFile]
 
 
 class CameraInputMixin:
-    @track_fingerprint
+    @track_telemetry
     def camera_input(
         self,
         label: str,

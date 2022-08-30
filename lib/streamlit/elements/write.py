@@ -22,7 +22,7 @@ import numpy as np
 
 from streamlit import type_util
 from streamlit.errors import StreamlitAPIException
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.state import SessionStateProxy
 from streamlit.user_info import UserInfoProxy
 
@@ -41,7 +41,7 @@ HELP_TYPES: Final[Tuple[Type[Any], ...]] = (
 
 
 class WriteMixin:
-    @track_fingerprint
+    @track_telemetry
     def write(self, *args: Any, **kwargs: Any) -> None:
         """Write arguments to the app.
 

@@ -16,7 +16,7 @@ import json
 from typing import Any, cast, TYPE_CHECKING
 
 from streamlit.proto.Json_pb2 import Json as JsonProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.state import SessionStateProxy
 from streamlit.user_info import UserInfoProxy
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 
 class JsonMixin:
-    @track_fingerprint
+    @track_telemetry
     def json(
         self,
         body: Any,

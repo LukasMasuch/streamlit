@@ -19,7 +19,7 @@ from typing_extensions import TypeAlias, Literal
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Metric_pb2 import Metric as MetricProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 from .utils import clean_text
 
@@ -41,7 +41,7 @@ class MetricColorAndDirection:
 
 
 class MetricMixin:
-    @track_fingerprint
+    @track_telemetry
     def metric(
         self,
         label: str,

@@ -14,7 +14,7 @@
 
 import re
 
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
@@ -34,7 +34,7 @@ from .utils import check_callback_rules, check_session_state_rules
 
 
 class ColorPickerMixin:
-    @track_fingerprint
+    @track_telemetry
     def color_picker(
         self,
         label: str,

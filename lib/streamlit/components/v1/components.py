@@ -17,7 +17,7 @@ import json
 import os
 import threading
 from typing import Any, Dict, Optional, Type, Union
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 import streamlit
 from streamlit import type_util
@@ -77,7 +77,7 @@ class CustomComponent:
         """An alias for create_instance."""
         return self.create_instance(*args, default=default, key=key, **kwargs)
 
-    @track_fingerprint
+    @track_telemetry
     def create_instance(
         self,
         *args,

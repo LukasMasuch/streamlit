@@ -21,7 +21,7 @@ from typing_extensions import Final
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.BokehChart_pb2 import BokehChart as BokehChartProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     from bokeh.plotting.figure import Figure
@@ -31,7 +31,7 @@ ST_BOKEH_VERSION: Final = "2.4.3"
 
 
 class BokehMixin:
-    @track_fingerprint
+    @track_telemetry
     def bokeh_chart(
         self,
         figure: "Figure",

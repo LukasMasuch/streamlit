@@ -22,13 +22,13 @@ from streamlit import type_util
 from streamlit.errors import StreamlitAPIException
 from streamlit.logger import get_logger
 from streamlit.proto.GraphVizChart_pb2 import GraphVizChart as GraphVizChartProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 LOGGER = get_logger(__name__)
 
 
 class GraphvizMixin:
-    @track_fingerprint
+    @track_telemetry
     def graphviz_chart(self, figure_or_dot, use_container_width=False):
         """Display a graph using the dagre-d3 library.
 

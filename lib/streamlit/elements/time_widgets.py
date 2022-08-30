@@ -20,7 +20,7 @@ from typing import Any, cast, List, Optional, Sequence, Tuple, TYPE_CHECKING, Un
 from dateutil import relativedelta
 from typing_extensions import TypeAlias
 
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from streamlit.errors import StreamlitAPIException
@@ -163,7 +163,7 @@ class _DateInputValues:
 
 
 class TimeWidgetsMixin:
-    @track_fingerprint
+    @track_telemetry
     def time_input(
         self,
         label: str,
@@ -304,7 +304,7 @@ class TimeWidgetsMixin:
         self.dg._enqueue("time_input", time_input_proto)
         return widget_state.value
 
-    @track_fingerprint
+    @track_telemetry
     def date_input(
         self,
         label: str,

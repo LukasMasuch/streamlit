@@ -17,7 +17,7 @@ from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from textwrap import dedent
 from typing import Optional, Union, cast
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 import streamlit
 from streamlit.errors import StreamlitAPIException
@@ -37,7 +37,7 @@ Number = Union[int, float]
 
 
 class NumberInputMixin:
-    @track_fingerprint
+    @track_telemetry
     def number_input(
         self,
         label: str,

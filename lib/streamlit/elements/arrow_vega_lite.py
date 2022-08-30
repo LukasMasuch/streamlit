@@ -23,7 +23,7 @@ from streamlit.logger import get_logger
 from streamlit.proto.ArrowVegaLiteChart_pb2 import (
     ArrowVegaLiteChart as ArrowVegaLiteChartProto,
 )
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 from . import arrow
 from .arrow import Data
@@ -36,7 +36,7 @@ LOGGER: Final = get_logger(__name__)
 
 
 class ArrowVegaLiteMixin:
-    @track_fingerprint
+    @track_telemetry
     def _arrow_vega_lite_chart(
         self,
         data: Data = None,

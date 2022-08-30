@@ -16,7 +16,7 @@ from typing import cast, Optional, TYPE_CHECKING
 
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Alert_pb2 import Alert as AlertProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.string_util import is_emoji
 from .utils import clean_text
 
@@ -37,7 +37,7 @@ def validate_emoji(maybe_emoji: Optional[str]) -> str:
 
 
 class AlertMixin:
-    @track_fingerprint
+    @track_telemetry
     def error(
         self,
         body: "SupportsStr",
@@ -66,7 +66,7 @@ class AlertMixin:
         alert_proto.format = AlertProto.ERROR
         return self.dg._enqueue("alert", alert_proto)
 
-    @track_fingerprint
+    @track_telemetry
     def warning(
         self,
         body: "SupportsStr",
@@ -96,7 +96,7 @@ class AlertMixin:
         alert_proto.format = AlertProto.WARNING
         return self.dg._enqueue("alert", alert_proto)
 
-    @track_fingerprint
+    @track_telemetry
     def info(
         self,
         body: "SupportsStr",
@@ -127,7 +127,7 @@ class AlertMixin:
         alert_proto.format = AlertProto.INFO
         return self.dg._enqueue("alert", alert_proto)
 
-    @track_fingerprint
+    @track_telemetry
     def success(
         self,
         body: "SupportsStr",

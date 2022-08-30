@@ -50,7 +50,7 @@ from streamlit.error_util import handle_uncaught_app_exception
 from streamlit.errors import StreamlitAPIWarning
 from streamlit.logger import get_logger
 from streamlit.runtime.stats import CacheStat, CacheStatsProvider
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from .hashing import update_hash, HashFuncsDict, HashReason
 
 _LOGGER = get_logger(__name__)
@@ -346,7 +346,7 @@ def _read_from_cache(
         raise e
 
 
-@track_fingerprint
+@track_telemetry
 def _write_to_cache(
     mem_cache: MemCache,
     key: str,

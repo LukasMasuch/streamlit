@@ -46,7 +46,7 @@ For more detailed info, see https://docs.streamlit.io.
 from streamlit import logger as _logger
 from streamlit import config as _config
 from streamlit.proto.RootContainer_pb2 import RootContainer
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 from streamlit.runtime.secrets import Secrets, SECRETS_FILE_LOC
 
 _LOGGER = _logger.get_logger("root")
@@ -90,7 +90,7 @@ from streamlit.runtime.caching import (
     memo as experimental_memo,
 )
 
-cache = track_fingerprint(_cache)
+cache = track_telemetry(_cache)
 
 # This is set to True inside cli._main_run(), and is False otherwise.
 # If False, we should assume that DeltaGenerator functions are effectively
@@ -210,12 +210,12 @@ experimental_user = UserInfoProxy()
 
 # Beta APIs
 
-beta_container = track_fingerprint(_main.beta_container)
-beta_expander = track_fingerprint(_main.beta_expander)
-beta_columns = track_fingerprint(_main.beta_columns)
+beta_container = track_telemetry(_main.beta_container)
+beta_expander = track_telemetry(_main.beta_expander)
+beta_columns = track_telemetry(_main.beta_columns)
 
 
-@track_fingerprint
+@track_telemetry
 def set_option(key: str, value: Any) -> None:
     """Set config option.
 
@@ -255,7 +255,7 @@ def set_option(key: str, value: Any) -> None:
     )
 
 
-@track_fingerprint
+@track_telemetry
 def experimental_show(*args: Any) -> None:
     """Write arguments and *argument names* to your app for debugging purposes.
 
@@ -337,7 +337,7 @@ def experimental_show(*args: Any) -> None:
         exception(exc)
 
 
-@track_fingerprint
+@track_telemetry
 def experimental_get_query_params() -> Dict[str, List[str]]:
     """Return the query parameters that is currently showing in the browser's URL bar.
 
@@ -368,7 +368,7 @@ def experimental_get_query_params() -> Dict[str, List[str]]:
     return _parse.parse_qs(ctx.query_string)
 
 
-@track_fingerprint
+@track_telemetry
 def experimental_set_query_params(**query_params: Any) -> None:
     """Set the query parameters that are shown in the browser's URL bar.
 
@@ -461,7 +461,7 @@ def spinner(text: str = "In progress...") -> Iterator[None]:
                 message.empty()
 
 
-@track_fingerprint
+@track_telemetry
 def _transparent_write(*args: Any) -> Any:
     """This is just st.write, but returns the arguments you passed to it."""
     write(*args)

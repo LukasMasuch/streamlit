@@ -15,14 +15,14 @@
 from typing import cast, TYPE_CHECKING
 
 from streamlit.proto.Balloons_pb2 import Balloons as BalloonsProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
 
 
 class BalloonsMixin:
-    @track_fingerprint
+    @track_telemetry
     def balloons(self) -> "DeltaGenerator":
         """Draw celebratory balloons.
 

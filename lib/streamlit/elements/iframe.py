@@ -15,14 +15,14 @@
 from typing import cast, Optional, TYPE_CHECKING
 
 from streamlit.proto.IFrame_pb2 import IFrame as IFrameProto
-from streamlit.telemetry import track_fingerprint
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
 
 
 class IframeMixin:
-    @track_fingerprint
+    @track_telemetry
     def _iframe(
         self,
         src: str,
@@ -56,7 +56,7 @@ class IframeMixin:
         )
         return self.dg._enqueue("iframe", iframe_proto)
 
-    @track_fingerprint
+    @track_telemetry
     def _html(
         self,
         html: str,

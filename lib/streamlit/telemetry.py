@@ -7,14 +7,14 @@ from timeit import default_timer as timer
 from typing import Any, Callable, List, Optional, TypeVar, cast
 
 from streamlit.logger import get_logger
-from streamlit.proto.PageProfile_pb2 import Argument, Fingerprint
+from streamlit.proto.PageProfile_pb2 import Argument, Command
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 LOGGER = get_logger(__name__)
 
-# Limit the number of fingerprints to keep the page profile message small
+# Limit the number of commands to keep the page profile message small
 # Segment allows a maximum of 32kb per event.
-MAX_FINGERPRINTS = 150
+MAX_TRACKED_COMMANDS = 150
 NAME_MAPPING = {
     "streamlit.delta_generator.DeltaGenerator": "DG",
     "pandas.core.frame.DataFrame": "DataFrame",
@@ -84,7 +84,7 @@ def _get_arg_metadata(arg: object) -> Optional[str]:
     return None
 
 
-def _get_fingerprint(callable: Callable, *args, **kwargs) -> Fingerprint:
+def _get_command_telemetry(callable: Callable, *args, **kwargs) -> Command:
     arg_keywords = inspect.getfullargspec(callable).args
     self_arg: Optional[Any] = None
     arguments: List[Argument] = []
@@ -98,10 +98,10 @@ def _get_fingerprint(callable: Callable, *args, **kwargs) -> Fingerprint:
             continue
         arguments.append(
             Argument(
-                name=keyword,
-                type=_get_type_name(arg),
-                meta=_get_arg_metadata(arg),
-                pos=i,
+                k=keyword,
+                t=_get_type_name(arg),
+                m=_get_arg_metadata(arg),
+                p=i,
             )
         )
 
@@ -109,9 +109,9 @@ def _get_fingerprint(callable: Callable, *args, **kwargs) -> Fingerprint:
     arguments.extend(
         [
             Argument(
-                name=kwarg,
-                type=_get_type_name(kwargs[kwarg]),
-                meta=_get_arg_metadata(kwargs[kwarg]),
+                k=kwarg,
+                t=_get_type_name(kwargs[kwarg]),
+                m=_get_arg_metadata(kwargs[kwarg]),
             )
             for kwarg in kwargs
         ]
@@ -128,48 +128,48 @@ def _get_fingerprint(callable: Callable, *args, **kwargs) -> Fingerprint:
         name = f"component:{self_arg.name}"
     if name in NAME_MAPPING:
         name = NAME_MAPPING[name]
-    return Fingerprint(name=name, args=arguments)
+    return Command(name=name, args=arguments)
 
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def track_fingerprint(callable: F) -> F:
+def track_telemetry(callable: F) -> F:
     @wraps(callable)
     def wrap(*args, **kwargs):
         ctx = get_script_run_ctx()
 
-        track_fingerprint = (
+        tracking_activated = (
             ctx is not None
             and ctx.gather_usage_stats
-            and not ctx._deactivate_fingerprints
-            and len(ctx._fingerprints)
-            < MAX_FINGERPRINTS  # Prevent too much memory usage
+            and not ctx._tracking_deactivated
+            and len(ctx._tracked_commands)
+            < MAX_TRACKED_COMMANDS  # Prevent too much memory usage
         )
 
         # Deactivate tracking to prevent calls inside already tracked commands
         if ctx:
-            ctx._deactivate_fingerprints = True
+            ctx._tracking_deactivated = True
 
         exec_start = timer()
         result = callable(*args, **kwargs)
 
         # Activate tracking again
         if ctx:
-            ctx._deactivate_fingerprints = False
+            ctx._tracking_deactivated = False
 
-        if not track_fingerprint:
+        if not tracking_activated:
             return result
 
         try:
-            fingerprint = _get_fingerprint(callable, *args, **kwargs)
-            fingerprint.exec_time = _to_microseconds(timer() - exec_start)
-            ctx.add_fingerprint(fingerprint)
+            command_telemetry = _get_command_telemetry(callable, *args, **kwargs)
+            command_telemetry.time = _to_microseconds(timer() - exec_start)
+            ctx._tracked_commands.append(command_telemetry)
 
         except Exception as ex:
             # Always capture all exceptions since we want to make sure that
             # the telemetry never causes any issues.
-            LOGGER.debug("Failed to collect fingerprints", exc_info=ex)
+            LOGGER.debug("Failed to collect command telemetry", exc_info=ex)
         return result
 
     # Make this a well-behaved decorator by preserving important function
