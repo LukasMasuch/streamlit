@@ -14,9 +14,9 @@
 
 from typing import cast, TYPE_CHECKING
 
-from streamlit.proto.Text_pb2 import Text as TextProto
 from streamlit.telemetry import track_telemetry
-from .utils import clean_text
+from streamlit.proto.Text_pb2 import Text as TextProto
+from streamlit.string_util import clean_text
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator
@@ -27,16 +27,13 @@ class TextMixin:
     @track_telemetry
     def text(self, body: "SupportsStr") -> "DeltaGenerator":
         """Write fixed-width and preformatted text.
-
         Parameters
         ----------
         body : str
             The string to display.
-
         Example
         -------
         >>> st.text('This is some text.')
-
         """
         text_proto = TextProto()
         text_proto.body = clean_text(body)

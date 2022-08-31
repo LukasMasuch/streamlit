@@ -14,10 +14,10 @@
 
 from typing import cast, Optional, TYPE_CHECKING, Union
 
-from streamlit import type_util
 from streamlit.proto.Markdown_pb2 import Markdown as MarkdownProto
 from streamlit.telemetry import track_telemetry
-from .utils import clean_text
+from streamlit.string_util import clean_text
+from streamlit.type_util import SupportsStr, is_sympy_expession
 
 if TYPE_CHECKING:
     import sympy
@@ -27,7 +27,9 @@ if TYPE_CHECKING:
 
 class MarkdownMixin:
     @track_telemetry
-    def markdown(self, body: str, unsafe_allow_html: bool = False) -> "DeltaGenerator":
+    def markdown(
+        self, body: SupportsStr, unsafe_allow_html: bool = False
+    ) -> "DeltaGenerator":
         """Display string formatted as Markdown.
 
         Parameters
@@ -160,10 +162,7 @@ class MarkdownMixin:
 
         """
         code_proto = MarkdownProto()
-        markdown = "```%(language)s\n%(body)s\n```" % {
-            "language": language or "",
-            "body": body,
-        }
+        markdown = f'```{language or ""}\n{body}\n```'
         code_proto.body = clean_text(markdown)
         return self.dg._enqueue("markdown", code_proto)
 
@@ -241,7 +240,7 @@ class MarkdownMixin:
         return self.dg._enqueue("markdown", caption_proto)
 
     @track_telemetry
-    def latex(self, body: Union[str, "sympy.Expr"]) -> "DeltaGenerator":
+    def latex(self, body: Union[SupportsStr, "sympy.Expr"]) -> "DeltaGenerator":
         # This docstring needs to be "raw" because of the backslashes in the
         # example below.
         r"""Display mathematical expressions formatted as LaTeX.
@@ -266,7 +265,7 @@ class MarkdownMixin:
         ...     ''')
 
         """
-        if type_util.is_sympy_expession(body):
+        if is_sympy_expession(body):
             import sympy
 
             body = sympy.latex(body)

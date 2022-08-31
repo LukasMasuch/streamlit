@@ -17,11 +17,10 @@ from textwrap import dedent
 from typing import cast, TYPE_CHECKING, Union, Optional
 from typing_extensions import TypeAlias, Literal
 
+from streamlit.telemetry import track_telemetry
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Metric_pb2 import Metric as MetricProto
-from streamlit.telemetry import track_telemetry
-
-from .utils import clean_text
+from streamlit.string_util import clean_text
 
 if TYPE_CHECKING:
     import numpy as np

@@ -29,7 +29,7 @@ class IframeMixin:
         width: Optional[int] = None,
         height: Optional[int] = None,
         scrolling: bool = False,
-    ):
+    ) -> "DeltaGenerator":
         """Load a remote URL in an iframe.
 
         Parameters
@@ -63,7 +63,7 @@ class IframeMixin:
         width: Optional[int] = None,
         height: Optional[int] = None,
         scrolling: bool = False,
-    ):
+    ) -> "DeltaGenerator":
         """Display an HTML string in an iframe.
 
         Parameters
