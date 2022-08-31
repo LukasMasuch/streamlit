@@ -581,12 +581,18 @@ class ScriptRunner:
 
             if ctx.gather_usage_stats:
                 try:
+                    # Prevent issues with circular import
+                    from streamlit.telemetry import (
+                        create_page_profile_message,
+                        to_microseconds,
+                    )
+
                     # Create and send page profile information
                     ctx.enqueue(
-                        _create_page_profile_message(
+                        create_page_profile_message(
                             ctx._tracked_commands,
-                            exec_time=int((timer() - start_time) * 1000000),
-                            prep_time=int(prep_time * 1000000),
+                            exec_time=to_microseconds(timer() - start_time),
+                            prep_time=to_microseconds(prep_time),
                             uncaught_exception=type(uncaught_exception).__name__
                             if uncaught_exception
                             else None,
@@ -657,46 +663,6 @@ class RerunException(ScriptControlException):
 
     def __repr__(self) -> str:
         return util.repr_(self)
-
-
-def _create_page_profile_message(
-    commands: List[Command],
-    exec_time: int,
-    prep_time: int,
-    uncaught_exception: Optional[str] = None,
-) -> ForwardMsg:
-    """Create and return an PageProfile ForwardMsg."""
-    config_options: Set[str] = set()
-    if config._config_options:
-        for option_name in config._config_options.keys():
-            if not config.is_manually_set(option_name):
-                # We only care about manually defined options
-                continue
-
-            config_option = config._config_options[option_name]
-            if config_option.is_default:
-                option_name = f"{option_name}:default"
-            config_options.add(option_name)
-
-    attributions_to_test = ["snowflake"]
-
-    attributions: Set[str] = {
-        attribution
-        for attribution in attributions_to_test
-        if attribution in sys.modules
-    }
-
-    msg = ForwardMsg()
-    msg.page_profile.commands.extend(commands)
-    msg.page_profile.exec_time = exec_time
-    msg.page_profile.prep_time = prep_time
-    msg.page_profile.config.extend(config_options)
-
-    msg.page_profile.attributions.extend(attributions)
-    if uncaught_exception:
-        msg.page_profile.uncaught_exception = uncaught_exception
-
-    return msg
 
 
 def _clean_problem_modules() -> None:
