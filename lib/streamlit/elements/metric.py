@@ -17,7 +17,7 @@ from textwrap import dedent
 from typing import cast, TYPE_CHECKING, Union, Optional
 from typing_extensions import TypeAlias, Literal
 
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Metric_pb2 import Metric as MetricProto
 from streamlit.string_util import clean_text

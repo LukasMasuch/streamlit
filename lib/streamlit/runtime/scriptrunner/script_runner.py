@@ -582,7 +582,7 @@ class ScriptRunner:
             if ctx.gather_usage_stats:
                 try:
                     # Prevent issues with circular import
-                    from streamlit.telemetry import (
+                    from streamlit.runtime.metrics_util import (
                         create_page_profile_message,
                         to_microseconds,
                     )

@@ -19,7 +19,7 @@ from typing import Dict
 from typing import cast, Optional, TYPE_CHECKING, Union, Sequence
 
 from streamlit import config
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 if TYPE_CHECKING:
     from .arrow import Data

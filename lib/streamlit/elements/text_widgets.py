@@ -22,7 +22,7 @@ import streamlit
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.TextArea_pb2 import TextArea as TextAreaProto
 from streamlit.proto.TextInput_pb2 import TextInput as TextInputProto
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.runtime.state import (
     register_widget,
     WidgetArgs,

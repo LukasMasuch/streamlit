@@ -22,7 +22,7 @@ from typing import (
 )
 
 from streamlit.proto.Json_pb2 import Json as JsonProto
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.runtime.state import SessionStateProxy
 from streamlit.user_info import UserInfoProxy
 

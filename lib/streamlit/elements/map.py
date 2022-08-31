@@ -21,7 +21,7 @@ from typing import Any, Dict, Iterable, Optional, Union, cast, TYPE_CHECKING
 import pandas as pd
 from typing_extensions import Final, TypeAlias
 
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 import streamlit.elements.deck_gl_json_chart as deck_gl_json_chart
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.DeckGlJsonChart_pb2 import DeckGlJsonChart as DeckGlJsonChartProto

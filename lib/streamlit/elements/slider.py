@@ -31,7 +31,7 @@ from streamlit.type_util import Key, to_key
 from typing_extensions import Final, TypeAlias
 from textwrap import dedent
 
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.errors import StreamlitAPIException
 from streamlit.js_number import JSNumber
 from streamlit.js_number import JSNumberBoundsException

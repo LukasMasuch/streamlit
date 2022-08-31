@@ -31,7 +31,7 @@ from streamlit.proto.DataFrame_pb2 import (
     DataFrame as DataFrameProto,
     TableStyle as TableStyleProto,
 )
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator

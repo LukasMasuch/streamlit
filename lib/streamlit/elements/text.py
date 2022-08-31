@@ -14,7 +14,7 @@
 
 from typing import cast, TYPE_CHECKING
 
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.proto.Text_pb2 import Text as TextProto
 from streamlit.string_util import clean_text
 

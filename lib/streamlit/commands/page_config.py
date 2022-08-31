@@ -26,7 +26,7 @@ from streamlit.proto.ForwardMsg_pb2 import ForwardMsg as ForwardProto
 from streamlit.proto.PageConfig_pb2 import PageConfig as PageConfigProto
 from streamlit.runtime.scriptrunner import get_script_run_ctx
 from streamlit.string_util import is_emoji
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.util import lower_clean_dict_keys
 
 if TYPE_CHECKING:

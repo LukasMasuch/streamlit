@@ -41,7 +41,7 @@ from streamlit import type_util
 from streamlit.proto.ArrowVegaLiteChart_pb2 import (
     ArrowVegaLiteChart as ArrowVegaLiteChartProto,
 )
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 from .arrow import Data
 from .utils import last_index_for_melted_dataframes

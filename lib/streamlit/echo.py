@@ -18,7 +18,7 @@ import textwrap
 import traceback
 from typing import List, Iterable, Optional
 
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 _SPACES_RE = re.compile("\\s*")
 _EMPTY_LINE_RE = re.compile("\\s*\n")

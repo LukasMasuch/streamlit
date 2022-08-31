@@ -34,7 +34,7 @@ from streamlit.file_util import (
 )
 from streamlit.logger import get_logger
 from streamlit.runtime.stats import CacheStatsProvider, CacheStat
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from .cache_errors import (
     CacheError,
     CacheKeyNotFoundError,

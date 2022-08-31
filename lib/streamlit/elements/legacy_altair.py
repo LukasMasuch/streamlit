@@ -23,7 +23,7 @@ from typing import cast, TYPE_CHECKING
 from streamlit import errors, type_util
 from streamlit.proto.VegaLiteChart_pb2 import VegaLiteChart as VegaLiteChartProto
 import streamlit.elements.legacy_vega_lite as vega_lite
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 import altair as alt
 import pandas as pd
 import pyarrow as pa

@@ -22,7 +22,7 @@ from pympler import asizeof
 
 import streamlit as st
 from streamlit.logger import get_logger
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.runtime.stats import CacheStatsProvider, CacheStat
 from .cache_errors import CacheKeyNotFoundError, CacheType
 from .cache_utils import (

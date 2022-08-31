@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.type_util import Key, to_key
 from typing import cast, overload, List, Optional, Union
 from textwrap import dedent

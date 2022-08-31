@@ -14,7 +14,7 @@
 
 from typing import cast, Optional, TYPE_CHECKING
 from streamlit.proto.Heading_pb2 import Heading as HeadingProto
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.string_util import clean_text
 from streamlit.type_util import SupportsStr
 

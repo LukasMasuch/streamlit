@@ -15,7 +15,7 @@
 from typing import cast, Optional, TYPE_CHECKING
 
 from streamlit.proto.IFrame_pb2 import IFrame as IFrameProto
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator

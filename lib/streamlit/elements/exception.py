@@ -25,7 +25,7 @@ from streamlit.errors import StreamlitAPIWarning
 from streamlit.errors import StreamlitDeprecationWarning
 from streamlit.errors import UncaughtAppException
 from streamlit.logger import get_logger
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator

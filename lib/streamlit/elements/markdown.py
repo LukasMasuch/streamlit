@@ -17,7 +17,7 @@ from typing import cast, Optional, TYPE_CHECKING, Union
 from streamlit.proto.Markdown_pb2 import Markdown as MarkdownProto
 from streamlit.string_util import clean_text
 from streamlit.type_util import SupportsStr, is_sympy_expession
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 if TYPE_CHECKING:
     import sympy

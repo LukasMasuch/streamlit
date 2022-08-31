@@ -17,7 +17,7 @@ from typing import Any, Dict, Mapping, Optional, TYPE_CHECKING, cast
 
 from typing_extensions import Final
 
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.proto.DeckGlJsonChart_pb2 import DeckGlJsonChart as PydeckProto
 
 if TYPE_CHECKING:

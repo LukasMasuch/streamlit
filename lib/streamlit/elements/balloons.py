@@ -15,7 +15,7 @@
 from typing import cast, TYPE_CHECKING
 
 from streamlit.proto.Balloons_pb2 import Balloons as BalloonsProto
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 if TYPE_CHECKING:
     from streamlit.delta_generator import DeltaGenerator

@@ -20,7 +20,7 @@ from typing import Any, cast, List, Optional, Sequence, Tuple, TYPE_CHECKING, Un
 from dateutil import relativedelta
 from typing_extensions import TypeAlias
 
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 from streamlit.runtime.scriptrunner import ScriptRunContext, get_script_run_ctx
 from streamlit.type_util import Key, to_key
 from streamlit.errors import StreamlitAPIException

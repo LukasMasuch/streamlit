@@ -17,7 +17,7 @@ import json
 import os
 import threading
 from typing import Any, Dict, Optional, Type, Union
-from streamlit.telemetry import track_telemetry
+from streamlit.runtime.metrics_util import track_telemetry
 
 import streamlit
 from streamlit import type_util
