@@ -28,7 +28,7 @@ from streamlit import source_util
 from streamlit import util
 from streamlit.error_util import handle_uncaught_app_exception
 from streamlit.logger import get_logger
-from streamlit.proto.PageProfile_pb2 import Fingerprint
+from streamlit.proto.PageProfile_pb2 import Command
 from streamlit.proto.ClientState_pb2 import ClientState
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.runtime.in_memory_file_manager import in_memory_file_manager
@@ -655,7 +655,7 @@ class RerunException(ScriptControlException):
 
 
 def _create_page_profile_message(
-    fingerprints: List[Fingerprint],
+    commands: List[Command],
     exec_time: int,
     prep_time: int,
     uncaught_exception: Optional[str] = None,
@@ -664,17 +664,17 @@ def _create_page_profile_message(
     config_options: Set[str] = set()
     if config._config_options:
         for option_name in config._config_options.keys():
+            if not config.is_manually_set(option_name):
+                # We only care about manually defined options
+                continue
+
             config_option = config._config_options[option_name]
-            if config_option.where_defined not in [
-                config_option.DEFAULT_DEFINITION,
-                config_option.STREAMLIT_DEFINITION,
-            ]:
-                if config_option.is_default:
-                    option_name = f"{option_name}:default"
-                config_options.add(option_name)
+            if config_option.is_default:
+                option_name = f"{option_name}:default"
+            config_options.add(option_name)
 
     msg = ForwardMsg()
-    msg.page_profile.fingerprints.extend(fingerprints)
+    msg.page_profile.commands.extend(commands)
     msg.page_profile.exec_time = exec_time
     msg.page_profile.prep_time = prep_time
     msg.page_profile.config.extend(config_options)
