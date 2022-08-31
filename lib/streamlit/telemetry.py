@@ -38,10 +38,6 @@ NAME_MAPPING: Final = {
 ATTRIBUTIONS_TO_CHECK: Final = ["snowflake"]
 
 
-def to_microseconds(seconds):
-    return int(seconds * 1000000)
-
-
 def _get_type_name(obj: object) -> str:
     with contextlib.suppress(Exception):
         obj_type = type(obj)
@@ -136,6 +132,10 @@ def _get_command_telemetry(callable: Callable, *args, **kwargs) -> Command:
     return Command(name=name, args=arguments)
 
 
+def to_microseconds(seconds):
+    return int(seconds * 1000000)
+
+
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -200,6 +200,7 @@ def create_page_profile_message(
     msg.page_profile.exec_time = exec_time
     msg.page_profile.prep_time = prep_time
 
+    # Collect all config options that have been manually set
     config_options: Set[str] = set()
     if config._config_options:
         for option_name in config._config_options.keys():
@@ -214,6 +215,7 @@ def create_page_profile_message(
 
     msg.page_profile.config.extend(config_options)
 
+    # Check the predefined set of modules for attribution
     attributions: Set[str] = {
         attribution
         for attribution in ATTRIBUTIONS_TO_CHECK
