@@ -399,7 +399,7 @@ def experimental_set_query_params(**query_params: Any) -> None:
     ctx.enqueue(msg)
 
 
-# TODO: Do not add fingerprinting here?
+# TODO: Do not track telemetry for this function.
 @_contextlib.contextmanager
 def spinner(text: str = "In progress...") -> Iterator[None]:
     """Temporarily displays a message while executing a block of code.
@@ -502,7 +502,7 @@ def _maybe_print_use_warning() -> None:
             )
 
 
-# TODO: Do not add fingerprinting here?
+# TODO: Do not track telemetry for this function.
 def stop() -> NoReturn:
     """Stops execution immediately.
 
@@ -523,7 +523,7 @@ def stop() -> NoReturn:
     raise StopException()
 
 
-# TODO: Do not add fingerprinting here?
+# TODO: Do not track telemetry for this function.
 def experimental_rerun() -> NoReturn:
     """Rerun the script immediately.
 

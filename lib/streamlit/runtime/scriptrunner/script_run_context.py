@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from dataclasses import dataclass, field
 import threading
 from typing import Dict, Optional, List, Callable, Set
@@ -26,6 +25,7 @@ from streamlit.runtime.uploaded_file_manager import UploadedFileManager
 from streamlit.proto.PageProfile_pb2 import Command
 
 LOGGER: Final = get_logger(__name__)
+
 
 UserInfo: TypeAlias = Dict[str, Optional[str]]
 

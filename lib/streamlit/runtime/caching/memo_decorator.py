@@ -33,8 +33,8 @@ from streamlit.file_util import (
     get_streamlit_file_path,
 )
 from streamlit.logger import get_logger
-from streamlit.telemetry import track_telemetry
 from streamlit.runtime.stats import CacheStatsProvider, CacheStat
+from streamlit.telemetry import track_telemetry
 from .cache_errors import (
     CacheError,
     CacheKeyNotFoundError,
@@ -220,7 +220,7 @@ class MemoAPI:
         suppress_st_warning: bool = False,
         max_entries: Optional[int] = None,
         ttl: Optional[float] = None,
-    ) -> Callable[[Any], Any]:
+    ) -> Callable[[F], F]:
         ...
 
     # __call__ should be a static method, but there's a mypy bug that
@@ -236,7 +236,7 @@ class MemoAPI:
         suppress_st_warning: bool = False,
         max_entries: Optional[int] = None,
         ttl: Optional[float] = None,
-    ) -> Callable[[Any], Any]:
+    ):
         """Function decorator to memoize function executions.
 
         Memoized data is stored in "pickled" form, which means that the return

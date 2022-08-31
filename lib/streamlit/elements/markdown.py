@@ -15,9 +15,9 @@
 from typing import cast, Optional, TYPE_CHECKING, Union
 
 from streamlit.proto.Markdown_pb2 import Markdown as MarkdownProto
-from streamlit.telemetry import track_telemetry
 from streamlit.string_util import clean_text
 from streamlit.type_util import SupportsStr, is_sympy_expession
+from streamlit.telemetry import track_telemetry
 
 if TYPE_CHECKING:
     import sympy
@@ -83,60 +83,9 @@ class MarkdownMixin:
         return self.dg._enqueue("markdown", markdown_proto)
 
     @track_telemetry
-    def header(self, body: str, anchor: Optional[str] = None) -> "DeltaGenerator":
-        """Display text in header formatting.
-
-        Parameters
-        ----------
-        body : str
-            The text to display.
-
-        anchor : str
-            The anchor name of the header that can be accessed with #anchor
-            in the URL. If omitted, it generates an anchor using the body.
-
-        Example
-        -------
-        >>> st.header('This is a header')
-
-        """
-        header_proto = MarkdownProto()
-        if anchor is None:
-            header_proto.body = f"## {clean_text(body)}"
-        else:
-            header_proto.body = f'<h2 data-anchor="{anchor}">{clean_text(body)}</h2>'
-            header_proto.allow_html = True
-        return self.dg._enqueue("markdown", header_proto)
-
-    @track_telemetry
-    def subheader(self, body: str, anchor: Optional[str] = None) -> "DeltaGenerator":
-        """Display text in subheader formatting.
-
-        Parameters
-        ----------
-        body : str
-            The text to display.
-
-        anchor : str
-            The anchor name of the header that can be accessed with #anchor
-            in the URL. If omitted, it generates an anchor using the body.
-
-        Example
-        -------
-        >>> st.subheader('This is a subheader')
-
-        """
-        subheader_proto = MarkdownProto()
-        if anchor is None:
-            subheader_proto.body = f"### {clean_text(body)}"
-        else:
-            subheader_proto.body = f'<h3 data-anchor="{anchor}">{clean_text(body)}</h3>'
-            subheader_proto.allow_html = True
-
-        return self.dg._enqueue("markdown", subheader_proto)
-
-    @track_telemetry
-    def code(self, body: str, language: Optional[str] = "python") -> "DeltaGenerator":
+    def code(
+        self, body: SupportsStr, language: Optional[str] = "python"
+    ) -> "DeltaGenerator":
         """Display a code block with optional syntax highlighting.
 
         (This is a convenience wrapper around `st.markdown()`)
@@ -167,36 +116,9 @@ class MarkdownMixin:
         return self.dg._enqueue("markdown", code_proto)
 
     @track_telemetry
-    def title(self, body: str, anchor: Optional[str] = None) -> "DeltaGenerator":
-        """Display text in title formatting.
-
-        Each document should have a single `st.title()`, although this is not
-        enforced.
-
-        Parameters
-        ----------
-        body : str
-            The text to display.
-
-        anchor : str
-            The anchor name of the header that can be accessed with #anchor
-            in the URL. If omitted, it generates an anchor using the body.
-
-        Example
-        -------
-        >>> st.title('This is a title')
-
-        """
-        title_proto = MarkdownProto()
-        if anchor is None:
-            title_proto.body = f"# {clean_text(body)}"
-        else:
-            title_proto.body = f'<h1 data-anchor="{anchor}">{clean_text(body)}</h1>'
-            title_proto.allow_html = True
-        return self.dg._enqueue("markdown", title_proto)
-
-    @track_telemetry
-    def caption(self, body: str, unsafe_allow_html: bool = False) -> "DeltaGenerator":
+    def caption(
+        self, body: SupportsStr, unsafe_allow_html: bool = False
+    ) -> "DeltaGenerator":
         """Display text in small font.
 
         This should be used for captions, asides, footnotes, sidenotes, and

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 class EmptyMixin:
-    # TODO: do not track fingerprint? @track_fingerprint
+    # TODO: Do not track telemetry for this function.
     def empty(self) -> "DeltaGenerator":
         """Insert a single-element container.
 

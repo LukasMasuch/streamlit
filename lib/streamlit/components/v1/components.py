@@ -53,6 +53,7 @@ class CustomComponent:
             raise StreamlitAPIException(
                 "Either 'path' or 'url' must be set, but not both."
             )
+
         self.name = name
         self.path = path
         self.url = url

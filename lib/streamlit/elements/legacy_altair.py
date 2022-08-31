@@ -28,7 +28,6 @@ import altair as alt
 import pandas as pd
 import pyarrow as pa
 
-
 from .utils import last_index_for_melted_dataframes
 
 if TYPE_CHECKING:
