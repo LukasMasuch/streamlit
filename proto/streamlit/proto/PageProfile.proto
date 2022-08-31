@@ -27,11 +27,11 @@ message PageProfile {
 
 message Argument {
   // The keyword of the argument.
-	string k = 1;
+  string k = 1;
   // The type of the argument.
-	string t = 2;
+  string t = 2;
   // Some metadata about the argument value.
-	string m = 3;
+  string m = 3;
   // If positional argument, contains the position
   int32 p = 5;
 }
