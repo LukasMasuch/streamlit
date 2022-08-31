@@ -460,7 +460,11 @@ export class App extends PureComponent<Props, State> {
       menuItems,
     } = pageConfig
 
-    MetricsManager.current.enqueue("pageConfigChanged", pageConfig)
+    MetricsManager.current.enqueue("pageConfigChanged", {
+      favicon,
+      layout,
+      initialSidebarState,
+    })
 
     if (title) {
       this.props.s4aCommunication.sendMessage({
