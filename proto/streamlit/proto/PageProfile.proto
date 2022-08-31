@@ -23,6 +23,7 @@ message PageProfile {
   int64 prep_time = 3;
   repeated string config = 5;
   string uncaught_exception = 6;
+  repeated string attributions = 7;
 }
 
 // The field names are used as part of the event json sent

@@ -580,17 +580,22 @@ class ScriptRunner:
                 finished_event = ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
 
             if ctx.gather_usage_stats:
-                # Create and send page profile information
-                ctx.enqueue(
-                    _create_page_profile_message(
-                        ctx._tracked_commands,
-                        exec_time=int((timer() - start_time) * 1000000),
-                        prep_time=int(prep_time * 1000000),
-                        uncaught_exception=type(uncaught_exception).__name__
-                        if uncaught_exception
-                        else None,
+                try:
+                    # Create and send page profile information
+                    ctx.enqueue(
+                        _create_page_profile_message(
+                            ctx._tracked_commands,
+                            exec_time=int((timer() - start_time) * 1000000),
+                            prep_time=int(prep_time * 1000000),
+                            uncaught_exception=type(uncaught_exception).__name__
+                            if uncaught_exception
+                            else None,
+                        )
                     )
-                )
+                except Exception as ex:
+                    # Always capture all exceptions since we want to make sure that
+                    # the telemetry never causes any issues.
+                    LOGGER.debug("Failed to create page profile", exc_info=ex)
             self._on_script_finished(ctx, finished_event)
 
         # Use _log_if_error() to make sure we never ever ever stop running the
@@ -673,12 +678,21 @@ def _create_page_profile_message(
                 option_name = f"{option_name}:default"
             config_options.add(option_name)
 
+    attributions_to_test = ["snowflake"]
+
+    attributions: Set[str] = {
+        attribution
+        for attribution in attributions_to_test
+        if attribution in sys.modules
+    }
+
     msg = ForwardMsg()
     msg.page_profile.commands.extend(commands)
     msg.page_profile.exec_time = exec_time
     msg.page_profile.prep_time = prep_time
     msg.page_profile.config.extend(config_options)
 
+    msg.page_profile.attributions.extend(attributions)
     if uncaught_exception:
         msg.page_profile.uncaught_exception = uncaught_exception
 
