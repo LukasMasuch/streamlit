@@ -428,20 +428,8 @@ export class App extends PureComponent<Props, State> {
           this.handleGitInfoChanged(gitInfo),
         scriptFinished: (status: ForwardMsg.ScriptFinishedStatus) =>
           this.handleScriptFinished(status),
-        pageProfile: (pageProfile: PageProfile) => {
-          logAlways("debug_pageProfile", pageProfile)
-          MetricsManager.current.enqueue("debug_pageProfile", {
-            ...PageProfile.toObject(pageProfile),
-            numPages: this.state.appPages?.length,
-            sessionId: SessionInfo.current.sessionId,
-            pythonVersion: SessionInfo.current.pythonVersion,
-            pageScriptHash: this.state.currentPageScriptHash,
-            activeTheme: this.props.theme?.activeTheme?.name,
-            totalLoadTime: Math.round(
-              (performance.now() - this.state.startTime) * 1000
-            ),
-          })
-        },
+        pageProfile: (pageProfile: PageProfile) =>
+          this.handlePageProfileMsg(pageProfile),
       })
     } catch (e) {
       const err = ensureError(e)
@@ -534,6 +522,21 @@ export class App extends PureComponent<Props, State> {
         type: "SET_APP_PAGES",
         appPages,
       })
+    })
+  }
+
+  handlePageProfileMsg = (pageProfile: PageProfile): void => {
+    logAlways("debug_pageProfile", pageProfile)
+    MetricsManager.current.enqueue("debug_pageProfile", {
+      ...PageProfile.toObject(pageProfile),
+      numPages: this.state.appPages?.length,
+      sessionId: SessionInfo.current.sessionId,
+      pythonVersion: SessionInfo.current.pythonVersion,
+      pageScriptHash: this.state.currentPageScriptHash,
+      activeTheme: this.props.theme?.activeTheme?.name,
+      totalLoadTime: Math.round(
+        (performance.now() - this.state.startTime) * 1000
+      ),
     })
   }
 
