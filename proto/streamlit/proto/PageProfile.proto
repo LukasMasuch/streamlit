@@ -25,14 +25,17 @@ message PageProfile {
   string uncaught_exception = 6;
 }
 
+// The field names are used as part of the event json sent
+// to Segment. Since there is a 32kb limit for the event
+// size we are using short names to optimize for the size.
 message Argument {
-  // The keyword of the argument.
+  // The keyword of the argument:
   string k = 1;
-  // The type of the argument.
+  // The type of the argument:
   string t = 2;
-  // Some metadata about the argument value.
+  // Some metadata about the argument value
   string m = 3;
-  // If positional argument, contains the position
+  // If positional argument, contains the position:
   int32 p = 5;
 }
 
