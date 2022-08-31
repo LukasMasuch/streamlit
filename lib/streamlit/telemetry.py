@@ -4,7 +4,7 @@ import inspect
 from collections.abc import Sized
 from functools import wraps
 from timeit import default_timer as timer
-from typing import Any, Callable, List, Optional, TypeVar, cast
+from typing import Any, Callable, List, Optional, TypeVar, cast, Final
 
 from streamlit.logger import get_logger
 from streamlit.proto.PageProfile_pb2 import Argument, Command
@@ -14,18 +14,23 @@ LOGGER = get_logger(__name__)
 
 # Limit the number of commands to keep the page profile message small
 # Segment allows a maximum of 32kb per event.
-MAX_TRACKED_COMMANDS = 150
-NAME_MAPPING = {
+MAX_TRACKED_COMMANDS: Final = 150
+NAME_MAPPING: Final = {
+    # Object mappings
     "streamlit.delta_generator.DeltaGenerator": "DG",
     "pandas.core.frame.DataFrame": "DataFrame",
     "plotly.graph_objs._figure.Figure": "PlotlyFigure",
     "bokeh.plotting.figure.Figure": "BokehFigure",
     "matplotlib.figure.Figure": "MatplotlibFigure",
-    "MemoAPI": "experimental_memo",
-    "SingletonAPI": "experimental_singleton",
     "pandas.io.formats.style.Styler": "PandasStyler",
     "pandas.core.indexes.base.Index": "PandasIndex",
+    # Function mappings
     "_transparent_write": "magic",
+    "MemoAPI.__call__": "experimental_memo",
+    "SingletonAPI.__call__": "experimental_singleton",
+    "SingletonCache.write_result": "_cache_singleton_object",
+    "MemoCache.write_result": "_cache_memo_object",
+    "_write_to_cache": "_cache_object",
 }
 
 
@@ -56,13 +61,11 @@ def _get_callable_name(callable: Callable) -> str:
             name = callable.__qualname__
         elif hasattr(callable, "__name__"):
             name = callable.__name__
-
-        if name.endswith("__call__"):
-            # Only return the class name
-            return name.rsplit(".", 1)[0]
+        if name in NAME_MAPPING:
+            name = NAME_MAPPING[name]
         elif "." in name:
             # Only return actual function name
-            return name.split(".")[-1]
+            name = name.split(".")[-1]
         return name
     return "failed"
 
@@ -126,8 +129,6 @@ def _get_command_telemetry(callable: Callable, *args, **kwargs) -> Command:
     ):
         # Use custom component name
         name = f"component:{self_arg.name}"
-    if name in NAME_MAPPING:
-        name = NAME_MAPPING[name]
     return Command(name=name, args=arguments)
 
 
