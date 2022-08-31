@@ -112,10 +112,15 @@ class Installation:
 def _get_type_name(obj: object) -> str:
     with contextlib.suppress(Exception):
         obj_type = type(obj)
-        if obj_type.__module__ == "builtins":
+        type_name = "unknown"
+        if hasattr(obj_type, "__qualname__"):
             type_name = obj_type.__qualname__
-        else:
-            type_name = f"{obj_type.__module__}.{obj_type.__qualname__}"
+        elif hasattr(obj_type, "__name__"):
+            type_name = obj_type.__name__
+
+        if obj_type.__module__ != "builtins":
+            # Add the full module path
+            type_name = f"{obj_type.__module__}.{type_name}"
 
         if type_name in _NAME_MAPPING:
             type_name = _NAME_MAPPING[type_name]
@@ -162,12 +167,12 @@ def _get_command_telemetry(callable: Callable, *args, **kwargs) -> Command:
     arg_keywords = inspect.getfullargspec(callable).args
     self_arg: Optional[Any] = None
     arguments: List[Argument] = []
-    for i, arg in enumerate(args):
-        keyword = arg_keywords[i] if len(arg_keywords) > i else f"{i}"
+    for pos, arg in enumerate(args):
+        keyword = arg_keywords[pos] if len(arg_keywords) > pos else f"{pos}"
         if keyword == "self":
             self_arg = arg
             continue
-        argument = Argument(k=keyword, t=_get_type_name(arg), p=i)
+        argument = Argument(k=keyword, t=_get_type_name(arg), p=pos)
         if arg_metadata := _get_arg_metadata(arg):
             argument.m = arg_metadata
         arguments.append(argument)
