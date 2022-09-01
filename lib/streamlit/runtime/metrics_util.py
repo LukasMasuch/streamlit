@@ -45,6 +45,7 @@ _NAME_MAPPING: Final = {
     "matplotlib.figure.Figure": "MatplotlibFigure",
     "pandas.io.formats.style.Styler": "PandasStyler",
     "pandas.core.indexes.base.Index": "PandasIndex",
+    "pandas.core.series.Series": "PandasSeries",
     # Function mappings
     "_transparent_write": "magic",
     "MemoAPI.__call__": "experimental_memo",
@@ -167,8 +168,15 @@ def _get_command_telemetry(callable: Callable, *args, **kwargs) -> Command:
     arg_keywords = inspect.getfullargspec(callable).args
     self_arg: Optional[Any] = None
     arguments: List[Argument] = []
-    for pos, arg in enumerate(args):
-        keyword = arg_keywords[pos] if len(arg_keywords) > pos else f"{pos}"
+    is_method = inspect.ismethod(callable)
+
+    for i, arg in enumerate(args):
+        pos = i
+        if is_method:
+            # If the callable is a method, ignore the first argument (self)
+            i = i + 1
+
+        keyword = arg_keywords[i] if len(arg_keywords) > i else f"{i}"
         if keyword == "self":
             self_arg = arg
             continue
@@ -229,21 +237,19 @@ def track_telemetry(callable: F) -> F:
         try:
             command_telemetry = _get_command_telemetry(callable, *args, **kwargs)
             command_telemetry.time = to_microseconds(timer() - exec_start)
-            ctx._tracked_commands.append(command_telemetry)
-
+            if ctx:
+                ctx._tracked_commands.append(command_telemetry)
         except Exception as ex:
             # Always capture all exceptions since we want to make sure that
             # the telemetry never causes any issues.
             LOGGER.debug("Failed to collect command telemetry", exc_info=ex)
         return result
 
-    # Make this a well-behaved decorator by preserving important function
-    # attributes.
-    try:
+    with contextlib.suppress(AttributeError):
+        # Make this a well-behaved decorator by preserving important function
+        # attributes.
         wrap.__dict__.update(callable.__dict__)
-    except AttributeError:
-        pass
-
+        wrap.__signature__ = inspect.signature(callable)  # type: ignore
     return cast(F, wrap)
 
 
