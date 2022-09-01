@@ -22,6 +22,8 @@ import pandas as pd
 import streamlit
 from streamlit.runtime import metrics_util
 
+from tests import testutil
+
 MAC = "mac"
 UUID = "uuid"
 FILENAME = "/some/id/file"
@@ -86,6 +88,8 @@ class MetricsUtilTest(unittest.TestCase):
             machine_id = metrics_util._get_machine_id_v3()
         self.assertEqual(machine_id, MAC)
 
+
+class PageProfilingTest(testutil.DeltaGeneratorTestCase):
     @parameterized.expand(
         [
             (streamlit.dataframe, "dataframe"),
@@ -175,3 +179,33 @@ class MetricsUtilTest(unittest.TestCase):
         self.assertEqual(forward_msg.page_profile.exec_time, 1000)
         self.assertEqual(forward_msg.page_profile.prep_time, 2000)
         self.assertEqual(forward_msg.page_profile.commands[0].name, "dataframe")
+
+    def test_track_telemetry_decorator(self):
+        """Test track_telemetry decorator"""
+
+        ctx = metrics_util.get_script_run_ctx()
+        ctx.reset()
+        ctx.gather_usage_stats = True
+
+        @metrics_util.track_telemetry
+        def test_function(param1: int, param2: str, param3: float = 0.1) -> str:
+            streamlit.markdown("This function should not be tracked")
+            return "foo"
+
+        test_function(param1=10, param2="foobar")
+
+        self.assertEqual(len(ctx._tracked_commands), 1)
+        self.assertEqual(ctx._tracked_commands[0].name, "test_function")
+
+        streamlit.markdown("This function should be tracked")
+
+        self.assertEqual(len(ctx._tracked_commands), 2)
+        self.assertEqual(ctx._tracked_commands[0].name, "test_function")
+        self.assertEqual(ctx._tracked_commands[1].name, "markdown")
+
+        ctx.reset()
+        ctx.gather_usage_stats = False  # Deactivate tracking
+
+        self.assertEqual(len(ctx._tracked_commands), 0)
+        test_function(param1=10, param2="foobar")
+        self.assertEqual(len(ctx._tracked_commands), 0)
