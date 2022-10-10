@@ -17,21 +17,21 @@
 import json
 import string
 import urllib.parse
-from typing import Any, cast, Dict, List, Set, TYPE_CHECKING, Union
-from typing_extensions import Final, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Union, cast
 
-from streamlit.runtime.legacy_caching import caching
-from streamlit import type_util
 from streamlit.errors import StreamlitAPIException
 from streamlit.logger import get_logger
 from streamlit.proto.PlotlyChart_pb2 import PlotlyChart as PlotlyChartProto
+from streamlit.runtime.legacy_caching import caching
 from streamlit.runtime.metrics_util import gather_metrics
+from typing_extensions import Final, Literal, TypeAlias
+
+from streamlit import type_util
 
 if TYPE_CHECKING:
     import matplotlib
     import plotly.graph_objs as go
     from plotly.basedatatypes import BaseFigure
-
     from streamlit.delta_generator import DeltaGenerator
 
 
@@ -185,10 +185,30 @@ def marshall(
 
     else:
         if theme == "streamlit":
+            import plotly.graph_objects as go
             import plotly.io as pio
             import streamlit.mythemes
 
-            # pio.templates.default = "draft"
+            pio.templates.default = "draft"
+            # figure_or_data.update_layout(
+            #     template=pio.templates["draft"],
+            #     colorway=[
+            #         "#000001",  # 0068C9
+            #         "#000002",
+            #         "#000003",
+            #         "#000004",
+            #         "#000005",
+            #         "#000006",
+            #         "#000007",
+            #         "#000008",
+            #         "#000009",
+            #         "#000010",
+            #     ],
+            #     title_font_size=50,
+            #     xaxis_title="FOOOOO",
+            #     overwrite=True,
+            # )
+            print(pio.templates[pio.templates.default].layout["colorway"])
         figure = plotly.tools.return_figure_from_figure_or_data(
             figure_or_data, validate_figure=True
         )
@@ -206,7 +226,16 @@ def marshall(
         config.setdefault("showLink", kwargs.get("show_link", False))
         config.setdefault("linkText", kwargs.get("link_text", False))
 
-        proto.figure.spec = json.dumps(figure, cls=plotly.utils.PlotlyJSONEncoder)
+        plotly_spec = json.dumps(figure, cls=plotly.utils.PlotlyJSONEncoder)
+        import re
+
+        # plotly_spec = re.sub(r'"color": ".+?"', '"color": ""', plotly_spec)
+        print(plotly_spec)
+        # for idx, color in enumerate(
+        #     pio.templates[pio.templates.default].layout["colorway"]
+        # ):
+        #     plotly_spec = plotly_spec.replace(r'"color": ".+"', f'""')
+        proto.figure.spec = plotly_spec
         proto.figure.config = json.dumps(config)
 
     else:

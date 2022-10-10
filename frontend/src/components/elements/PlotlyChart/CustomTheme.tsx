@@ -15,7 +15,7 @@
  */
 
 import { merge, mergeWith, isArray, assign } from "lodash"
-
+import { darken, transparentize, readableColor } from "color2k"
 import { hasLightBackgroundColor, Theme } from "src/theme"
 
 export function applyStreamlitThemeData(data: any, theme: Theme): any {
@@ -35,7 +35,7 @@ export function applyStreamlitThemeData(data: any, theme: Theme): any {
 }
 
 function getGreyText(theme: Theme) {
-  return hasLightBackgroundColor(theme) ? theme.colors.gray70 : theme.colors.gray30
+  return theme.colors.fadedText60
 }
 
 export function applyStreamlitThemeLayout(layout: any, theme: Theme): any {
@@ -108,11 +108,12 @@ export function applyStreamlitThemeLayout(layout: any, theme: Theme): any {
           "#D5DAE5",
         ],
     legend: {
-      // side: "left",
-      // orientation: "h",
-      // yanchor: "bottom",
-      // xanchor: "left",
-      // y: -.25,
+      side: "left",
+      orientation: "h",
+      yanchor: "bottom",
+      xanchor: "left",
+      y: -0.5,
+      x: -0.05,
       title: {
         font: {
           size: fontSizes.smPx,
@@ -120,10 +121,13 @@ export function applyStreamlitThemeLayout(layout: any, theme: Theme): any {
         },
         side: "top",
       },
-      valign: "top",
+      valign: "middle",
+
       bordercolor: colors.transparent,
-      borderwidth: 0,
-      // tracegroupgap: 200,
+      itemwidth: 5,
+      itemsizing: "constant",
+      // xanchor: "left",
+      tracegroupgap: 100,
       font: {
         color: getGreyText(theme),
       },
@@ -164,6 +168,7 @@ export function applyStreamlitThemeLayout(layout: any, theme: Theme): any {
           "#D5DAE5",
         ],
     yaxis: {
+      hoverformat: ".2f",
       // nticks: 10,
       ticklabelposition: "outside",
       tickmode: "auto",
@@ -171,8 +176,10 @@ export function applyStreamlitThemeLayout(layout: any, theme: Theme): any {
       zeroline: false,
       title: {
         font: {
-          color: getGreyText(theme),
+          color: colors.fadedText60,
+          size: fontSizes.smPx,
         },
+        standoff: 25,
       },
       tickfont: {
         color: getGreyText(theme),
@@ -196,20 +203,33 @@ export function applyStreamlitThemeLayout(layout: any, theme: Theme): any {
           color: getGreyText(theme),
           size: fontSizes.smPx,
         },
+        standoff: 20,
       },
       zeroline: false,
       automargin: true,
     },
+    autosize: true,
     margin: {
-      pad: 5,
-      r: 10,
+      pad: 16,
+      r: 0,
+      autoexpand: true,
+      l: 0,
+      // b: -50,
       // t: 0,
     },
+    modebar: {
+      activecolor: colors.primary,
+      //remove: ["senddatatocloud", "editinchartstudio", "editInChartStudio"],
+    },
+
+    // align: "auto",
     hoverlabel: {
       bgcolor: colors.bgColor,
-      borderColor: getGreyText(theme),
+      bordercolor: colors.fadedText10,
       font: {
         color: getGreyText(theme),
+        family: genericFonts.bodyFont,
+        size: fontSizes.sm,
       },
     },
     coloraxis: {
@@ -220,7 +240,7 @@ export function applyStreamlitThemeLayout(layout: any, theme: Theme): any {
         outlinecolor: colors.transparent,
         outlinewidth: 8,
         nticks: 10,
-        y: .5745,
+        y: 0.5745,
         title: {
           font: {
             color: getGreyText(theme),

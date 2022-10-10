@@ -154,9 +154,12 @@ export function PlotlyChart({
       })
       console.log(legendGroupIndexes)
       if (legendGroupIndexes.size <= 6) {
-        spec.layout.template.layout.legend = assign({orientation: 'h', xanchor: "left", yanchor: "middle", y: -.25}, spec.layout.template.layout.legend)
+        spec.layout.template.layout.legend = assign(
+          { orientation: "h", xanchor: "left", yanchor: "middle", y: -0.25 },
+          spec.layout.template.layout.legend
+        )
       }
-      spec.data = assign(changeDiscreteColors(spec, theme), spec.data)
+      // spec.data = assign(changeDiscreteColors(spec, theme), spec.data)
       // should this be the same name as applyStreamlitTheme because there are duplicates?
       spec.layout.template.layout = applyStreamlitThemeLayout(
         spec.layout.template.layout,
