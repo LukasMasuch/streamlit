@@ -30,6 +30,7 @@ import {
 } from "src/theme"
 import { ensureError } from "src/lib/ErrorHandling"
 import { logError } from "src/lib/log"
+import { merge, mergeWith, isArray } from "lodash"
 
 /**
  * Plotly represents continuous colorscale through an array of pairs.
@@ -375,13 +376,13 @@ export function applyStreamlitThemeTemplateLayout(
           size: fontSizes.twoSmPx,
         },
       },
-      colorscale: {
-        diverging: convertColorArrayPlotly(getDivergingColorsArray(theme)),
-        sequential: convertColorArrayPlotly(getSequentialColorsArray(theme)),
-        sequentialminus: convertColorArrayPlotly(
-          getDivergingColorsArray(theme)
-        ),
-      },
+      // colorscale: {
+      //   diverging: convertColorArrayPlotly(getDivergingColorsArray(theme)),
+      //   sequential: convertColorArrayPlotly(getSequentialColorsArray(theme)),
+      //   sequentialminus: convertColorArrayPlotly(
+      //     getDivergingColorsArray(theme)
+      //   ),
+      // },
     },
     colorscale: {
       diverging: convertColorArrayPlotly(getDivergingColorsArray(theme)),
@@ -428,6 +429,9 @@ export function applyStreamlitThemeTemplateLayout(
 
   // cant use merge. use assign because plotly already has properties defined.
   assign(layout, streamlitTheme)
+  // return mergeWith({}, layout, streamlitTheme, (_, b) =>
+  //   isArray(b) ? b : undefined
+  // )
 }
 
 /**
@@ -484,9 +488,11 @@ export function applyStreamlitThemeTemplateData(
  */
 export function applyStreamlitTheme(spec: any, theme: Theme): void {
   try {
+    console.log("Before", spec.layout.template.layout)
     applyStreamlitThemeTemplateLayout(spec.layout.template.layout, theme)
-    applyStreamlitThemeTemplateData(spec.layout.template.data, theme)
-    applyStreamlitThemeData(spec.data, theme)
+    console.log("After", spec.layout.template.layout)
+    // applyStreamlitThemeTemplateData(spec.layout.template.data, theme)
+    // applyStreamlitThemeData(spec.data, theme)
   } catch (e) {
     const err = ensureError(e)
     logError(err)

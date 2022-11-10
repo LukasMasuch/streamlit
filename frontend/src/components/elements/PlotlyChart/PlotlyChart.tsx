@@ -59,8 +59,9 @@ function renderFigure({
   const theme: Theme = useTheme()
 
   const generateSpec = (figure: FigureProto): any => {
-    const spec = JSON.parse(figure.spec)
-
+    let updated_spec = figure.spec.replaceAll("#111111", "")
+    const spec = JSON.parse(updated_spec)
+    console.log(spec)
     const initialHeight = DEFAULT_HEIGHT
 
     if (isFullScreen()) {
