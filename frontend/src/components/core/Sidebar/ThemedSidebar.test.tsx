@@ -16,7 +16,8 @@
 
 import React from "react"
 import { mount } from "src/lib/test_util"
-import lightTheme from "src/theme/lightTheme"
+import emotionLightTheme from "src/theme/emotionLightTheme"
+import { mockEndpoints } from "src/lib/mocks/mocks"
 import { SidebarProps } from "./Sidebar"
 import ThemedSidebar from "./ThemedSidebar"
 
@@ -24,6 +25,7 @@ function getProps(
   props: Partial<SidebarProps> = {}
 ): Omit<SidebarProps, "chevronDownshift" | "theme"> {
   return {
+    endpoints: mockEndpoints(),
     appPages: [],
     onPageChange: jest.fn(),
     currentPageScriptHash: "page_hash",
@@ -46,9 +48,11 @@ describe("ThemedSidebar Component", () => {
 
     const updatedTheme = wrapper.find("Sidebar").prop("theme")
 
-    // @ts-ignore
-    expect(updatedTheme.colors.bgColor).toBe(lightTheme.colors.secondaryBg)
-    // @ts-ignore
+    // @ts-expect-error
+    expect(updatedTheme.colors.bgColor).toBe(
+      emotionLightTheme.colors.secondaryBg
+    )
+    // @ts-expect-error
     expect(updatedTheme.inSidebar).toBe(true)
   })
 

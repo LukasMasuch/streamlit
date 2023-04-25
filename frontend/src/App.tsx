@@ -21,11 +21,12 @@ import { enableAllPlugins as enableImmerPlugins } from "immer"
 import classNames from "classnames"
 
 // Other local imports.
-import AppContext from "src/components/core/AppContext"
+import { AppContext } from "src/components/core/AppContext"
 import AppView from "src/components/core/AppView"
 import StatusWidget from "src/components/core/StatusWidget"
 import MainMenu, { isLocalhost } from "src/components/core/MainMenu"
 import ToolbarActions from "src/components/core/ToolbarActions"
+import DeployButton from "src/components/core/DeployButton"
 import Header from "src/components/core/Header"
 import {
   DialogProps,
@@ -43,41 +44,56 @@ import { ConnectionState } from "src/lib/ConnectionState"
 import { ScriptRunState } from "src/lib/ScriptRunState"
 import { SessionEventDispatcher } from "src/lib/SessionEventDispatcher"
 import {
-  setCookie,
-  hashString,
-  isEmbeddedInIFrame,
-  isInChildFrame,
-  notUndefined,
+  generateUID,
   getElementWidgetID,
+  getEmbeddingIdClassName,
+  getIFrameEnclosingApp,
+  hashString,
+  isColoredLineDisplayed,
+  isDarkTheme,
+  isEmbed,
+  isFooterDisplayed,
+  isInChildFrame,
+  isLightTheme,
+  isPaddingDisplayed,
+  isScrollingHidden,
+  isToolbarDisplayed,
+  isTesting,
+  notUndefined,
+  setCookie,
+  extractPageNameFromPathName,
 } from "src/lib/utils"
 import { BaseUriParts } from "src/lib/UriUtil"
 import {
+  AppPage,
   BackMsg,
+  Config,
   CustomThemeConfig,
   Delta,
   ForwardMsg,
   ForwardMsgMetadata,
+  GitInfo,
+  IAppPage,
+  ICustomThemeConfig,
+  IGitInfo,
   Initialize,
   NewSession,
   PageConfig,
   PageInfo,
   PageNotFound,
-  PagesChanged,
   PageProfile,
+  PagesChanged,
   SessionEvent,
-  WidgetStates,
   SessionStatus,
-  Config,
-  IGitInfo,
-  GitInfo,
-  IAppPage,
-  AppPage,
+  WidgetStates,
 } from "src/autogen/proto"
-import { without, concat } from "lodash"
+import { concat, noop, without } from "lodash"
 
-import { RERUN_PROMPT_MODAL_DIALOG } from "src/lib/baseconsts"
+import {
+  RERUN_PROMPT_MODAL_DIALOG,
+  SHOW_DEPLOY_BUTTON,
+} from "src/lib/baseconsts"
 import { SessionInfo } from "src/lib/SessionInfo"
-import { MetricsManager } from "src/lib/MetricsManager"
 import { FileUploadClient } from "src/lib/FileUploadClient"
 import { logError, logMessage } from "src/lib/log"
 import { AppRoot } from "src/lib/AppNode"
@@ -87,15 +103,18 @@ import { ComponentRegistry } from "src/components/widgets/CustomComponent"
 import { handleFavicon } from "src/components/elements/Favicon"
 
 import {
-  CUSTOM_THEME_NAME,
   createAutoTheme,
   createPresetThemes,
   createTheme,
+  CUSTOM_THEME_NAME,
   getCachedTheme,
   isPresetTheme,
   ThemeConfig,
   toExportedTheme,
 } from "src/theme"
+import { DefaultStreamlitEndpoints } from "./lib/DefaultStreamlitEndpoints"
+import { SegmentMetricsManager } from "./lib/SegmentMetricsManager"
+import { StreamlitEndpoints } from "./lib/StreamlitEndpoints"
 
 import { StyledApp } from "./styled-components"
 
@@ -119,6 +138,7 @@ export interface Props {
     availableThemes: ThemeConfig[]
     setTheme: (theme: ThemeConfig) => void
     addThemes: (themes: ThemeConfig[]) => void
+    setImportedTheme: (themeInfo: ICustomThemeConfig) => void
   }
 }
 
@@ -137,7 +157,7 @@ interface State {
   menuItems?: PageConfig.IMenuItems | null
   allowRunOnSave: boolean
   scriptFinishedHandlers: (() => void)[]
-  developerMode: boolean
+  toolbarMode: Config.ToolbarMode
   themeHash: string | null
   gitInfo: IGitInfo | null
   formsData: FormsData
@@ -158,8 +178,30 @@ declare global {
   }
 }
 
+export const showDevelopmentOptions = (
+  hostIsOwner: boolean | undefined,
+  toolbarMode: Config.ToolbarMode
+): boolean => {
+  if (toolbarMode == Config.ToolbarMode.DEVELOPER) {
+    return true
+  }
+  if (
+    Config.ToolbarMode.VIEWER == toolbarMode ||
+    Config.ToolbarMode.MINIMAL == toolbarMode
+  ) {
+    return false
+  }
+  return hostIsOwner || isLocalhost()
+}
+
 export class App extends PureComponent<Props, State> {
-  private readonly sessionEventDispatcher: SessionEventDispatcher
+  private readonly endpoints: StreamlitEndpoints
+
+  private readonly sessionInfo = new SessionInfo()
+
+  private readonly metricsMgr = new SegmentMetricsManager(this.sessionInfo)
+
+  private readonly sessionEventDispatcher = new SessionEventDispatcher()
 
   private connectionManager: ConnectionManager | null
 
@@ -182,7 +224,9 @@ export class App extends PureComponent<Props, State> {
 
   private readonly componentRegistry: ComponentRegistry
 
-  constructor(props: Props) {
+  private readonly embeddingId: string = generateUID()
+
+  public constructor(props: Props) {
     super(props)
 
     // Initialize immerjs
@@ -190,7 +234,7 @@ export class App extends PureComponent<Props, State> {
 
     this.state = {
       connectionState: ConnectionState.INITIAL,
-      elements: AppRoot.empty("Please wait..."),
+      elements: AppRoot.empty(this.metricsMgr, "Please wait..."),
       isFullScreen: false,
       scriptName: "",
       scriptRunId: "<null>",
@@ -205,9 +249,6 @@ export class App extends PureComponent<Props, State> {
       menuItems: undefined,
       allowRunOnSave: true,
       scriptFinishedHandlers: [],
-      // A hack for now to get theming through. Product to think through how
-      // developer mode should be designed in the long term.
-      developerMode: window.location.host.includes("localhost"),
       themeHash: null,
       gitInfo: null,
       formsData: createFormsData(),
@@ -221,10 +262,10 @@ export class App extends PureComponent<Props, State> {
       // true as well for consistency.
       hideTopBar: true,
       hideSidebarNav: true,
+      toolbarMode: Config.ToolbarMode.MINIMAL,
       latestRunTime: performance.now(),
     }
 
-    this.sessionEventDispatcher = new SessionEventDispatcher()
     this.connectionManager = null
 
     this.widgetMgr = new WidgetStateManager({
@@ -232,23 +273,29 @@ export class App extends PureComponent<Props, State> {
       formsDataChanged: formsData => this.setState({ formsData }),
     })
 
-    this.uploadClient = new FileUploadClient({
+    this.endpoints = new DefaultStreamlitEndpoints({
       getServerUri: this.getBaseUriParts,
+      csrfEnabled: true,
+    })
+
+    this.uploadClient = new FileUploadClient({
+      sessionInfo: this.sessionInfo,
+      endpoints: this.endpoints,
       // A form cannot be submitted if it contains a FileUploader widget
       // that's currently uploading. We write that state here, in response
       // to a FileUploadClient callback. The FormSubmitButton element
       // reads the state.
       formsWithPendingRequestsChanged: formIds =>
         this.widgetMgr.setFormsWithUploads(formIds),
-      csrfEnabled: true,
     })
 
-    this.componentRegistry = new ComponentRegistry(this.getBaseUriParts)
+    this.componentRegistry = new ComponentRegistry(this.endpoints)
 
     this.pendingElementsTimerRunning = false
     this.pendingElementsBuffer = this.state.elements
 
     window.streamlitDebug = {
+      clearForwardMsgCache: this.debugClearForwardMsgCache,
       disconnectWebsocket: this.debugDisconnectWebsocket,
       shutdownRuntime: this.debugShutdownRuntime,
     }
@@ -270,7 +317,12 @@ export class App extends PureComponent<Props, State> {
       this.rerunScript()
     },
     CLEAR_CACHE: () => {
-      if (isLocalhost() || this.props.hostCommunication.currentState.isOwner) {
+      if (
+        showDevelopmentOptions(
+          this.props.hostCommunication.currentState.isOwner,
+          this.state.toolbarMode
+        )
+      ) {
         this.openClearCacheDialog()
       }
     },
@@ -281,6 +333,8 @@ export class App extends PureComponent<Props, State> {
     // Initialize connection manager here, to avoid
     // "Can't call setState on a component that is not yet mounted." error.
     this.connectionManager = new ConnectionManager({
+      sessionInfo: this.sessionInfo,
+      endpoints: this.endpoints,
       onMessage: this.handleMessage,
       onConnectionError: this.handleConnectionError,
       connectionStateChanged: this.handleConnectionStateChanged,
@@ -291,7 +345,7 @@ export class App extends PureComponent<Props, State> {
         this.props.hostCommunication.setAllowedOriginsResp,
     })
 
-    if (isEmbeddedInIFrame()) {
+    if (isScrollingHidden()) {
       document.body.classList.add("embedded")
     }
 
@@ -313,7 +367,7 @@ export class App extends PureComponent<Props, State> {
         },
       }
 
-      // @ts-ignore
+      // @ts-expect-error
       import("iframe-resizer/js/iframeResizer.contentWindow")
     }
 
@@ -322,7 +376,14 @@ export class App extends PureComponent<Props, State> {
       themeInfo: toExportedTheme(this.props.theme.activeTheme.emotion),
     })
 
-    MetricsManager.current.enqueue("viewReport")
+    this.props.hostCommunication.sendMessage({
+      type: "SCRIPT_RUN_STATE_CHANGED",
+      scriptRunState: this.state.scriptRunState,
+    })
+
+    this.metricsMgr.enqueue("viewReport")
+
+    window.addEventListener("popstate", this.onHistoryChange, false)
   }
 
   componentDidUpdate(
@@ -338,6 +399,15 @@ export class App extends PureComponent<Props, State> {
     if (this.props.hostCommunication.currentState.forcedModalClose) {
       this.closeDialog()
     }
+    if (this.props.hostCommunication.currentState.scriptRerunRequested) {
+      this.rerunScript()
+    }
+    if (this.props.hostCommunication.currentState.scriptStopRequested) {
+      this.stopScript()
+    }
+    if (this.props.hostCommunication.currentState.cacheClearRequested) {
+      this.clearCache()
+    }
 
     const { requestedPageScriptHash } =
       this.props.hostCommunication.currentState
@@ -345,10 +415,16 @@ export class App extends PureComponent<Props, State> {
       this.onPageChange(requestedPageScriptHash)
       this.props.hostCommunication.onPageChanged()
     }
-    // @ts-ignore
+    // @ts-expect-error
     if (window.prerenderReady === false && this.isAppInReadyState(prevState)) {
-      // @ts-ignore
+      // @ts-expect-error
       window.prerenderReady = true
+    }
+    if (this.state.scriptRunState !== prevState.scriptRunState) {
+      this.props.hostCommunication.sendMessage({
+        type: "SCRIPT_RUN_STATE_CHANGED",
+        scriptRunState: this.state.scriptRunState,
+      })
     }
   }
 
@@ -367,6 +443,8 @@ export class App extends PureComponent<Props, State> {
     // happy since connectionManager's type is `ConnectionManager | null`,
     // but at this point it should always be set.
     this.connectionManager?.disconnect()
+
+    window.removeEventListener("popstate", this.onHistoryChange, false)
   }
 
   showError(title: string, errorNode: ReactNode): void {
@@ -398,16 +476,16 @@ export class App extends PureComponent<Props, State> {
   /**
    * Checks if the code version from the backend is different than the frontend
    */
-  static hasStreamlitVersionChanged(initializeMsg: Initialize): boolean {
-    if (SessionInfo.isSet()) {
-      const { streamlitVersion: currentStreamlitVersion } = SessionInfo.current
+  private hasStreamlitVersionChanged(initializeMsg: Initialize): boolean {
+    if (this.sessionInfo.isSet) {
+      const currentStreamlitVersion = this.sessionInfo.current.streamlitVersion
       const { environmentInfo } = initializeMsg
 
       if (
         environmentInfo != null &&
         environmentInfo.streamlitVersion != null
       ) {
-        return currentStreamlitVersion < environmentInfo.streamlitVersion
+        return currentStreamlitVersion != environmentInfo.streamlitVersion
       }
     }
 
@@ -431,8 +509,8 @@ export class App extends PureComponent<Props, State> {
     } else {
       setCookie("_xsrf", "")
 
-      if (SessionInfo.isSet()) {
-        SessionInfo.clearSession()
+      if (this.sessionInfo.isSet) {
+        this.sessionInfo.clearCurrent()
       }
     }
   }
@@ -496,7 +574,7 @@ export class App extends PureComponent<Props, State> {
     const { title, favicon, layout, initialSidebarState, menuItems } =
       pageConfig
 
-    MetricsManager.current.enqueue("pageConfigChanged", {
+    this.metricsMgr.enqueue("pageConfigChanged", {
       favicon,
       layout,
       initialSidebarState,
@@ -512,7 +590,11 @@ export class App extends PureComponent<Props, State> {
     }
 
     if (favicon) {
-      handleFavicon(favicon, this.getBaseUriParts())
+      handleFavicon(
+        favicon,
+        this.props.hostCommunication.sendMessage,
+        this.endpoints
+      )
     }
 
     // Only change layout/sidebar when the page config has changed.
@@ -575,12 +657,12 @@ export class App extends PureComponent<Props, State> {
   }
 
   handlePageProfileMsg = (pageProfile: PageProfile): void => {
-    MetricsManager.current.enqueue("pageProfile", {
+    this.metricsMgr.enqueue("pageProfile", {
       ...PageProfile.toObject(pageProfile),
-      appId: SessionInfo.current.appId,
+      appId: this.sessionInfo.current.appId,
       numPages: this.state.appPages?.length,
-      sessionId: SessionInfo.current.sessionId,
-      pythonVersion: SessionInfo.current.pythonVersion,
+      sessionId: this.sessionInfo.current.sessionId,
+      pythonVersion: this.sessionInfo.current.pythonVersion,
       pageScriptHash: this.state.currentPageScriptHash,
       activeTheme: this.props.theme?.activeTheme?.name,
       totalLoadTime: Math.round(
@@ -625,23 +707,23 @@ export class App extends PureComponent<Props, State> {
         // a script compilation failure
         scriptRunState = ScriptRunState.NOT_RUNNING
 
-        MetricsManager.current.enqueue(
+        this.metricsMgr.enqueue(
           "deltaStats",
-          MetricsManager.current.getAndResetDeltaCounter()
+          this.metricsMgr.getAndResetDeltaCounter()
         )
 
         const { availableThemes, activeTheme } = this.props.theme
         const customThemeDefined =
           availableThemes.length > createPresetThemes().length
-        MetricsManager.current.enqueue("themeStats", {
+        this.metricsMgr.enqueue("themeStats", {
           activeThemeName: activeTheme.name,
           customThemeDefined,
         })
 
         const customComponentCounter =
-          MetricsManager.current.getAndResetCustomComponentCounter()
+          this.metricsMgr.getAndResetCustomComponentCounter()
         Object.entries(customComponentCounter).forEach(([name, count]) => {
-          MetricsManager.current.enqueue("customComponentStats", {
+          this.metricsMgr.enqueue("customComponentStats", {
             name,
             count,
           })
@@ -694,7 +776,7 @@ export class App extends PureComponent<Props, State> {
   handleNewSession = (newSessionProto: NewSession): void => {
     const initialize = newSessionProto.initialize as Initialize
 
-    if (App.hasStreamlitVersionChanged(initialize)) {
+    if (this.hasStreamlitVersionChanged(initialize)) {
       window.location.reload()
       return
     }
@@ -702,14 +784,14 @@ export class App extends PureComponent<Props, State> {
     // First, handle initialization logic. Each NewSession message has
     // initialization data. If this is the _first_ time we're receiving
     // the NewSession message, we perform some one-time initialization.
-    if (!SessionInfo.isSet()) {
+    if (!this.sessionInfo.isSet) {
       // We're not initialized. Perform one-time initialization.
       this.handleOneTimeInitialization(newSessionProto)
     }
 
     const config = newSessionProto.config as Config
     const themeInput = newSessionProto.customTheme as CustomThemeConfig
-    const { currentPageScriptHash } = this.state
+    const { currentPageScriptHash: prevPageScriptHash } = this.state
     const newPageScriptHash = newSessionProto.pageScriptHash
 
     // mainPage must be a string as we're guaranteed at this point that
@@ -727,15 +809,28 @@ export class App extends PureComponent<Props, State> {
     const baseUriParts = this.getBaseUriParts()
     if (baseUriParts) {
       const { basePath } = baseUriParts
-      const queryString = this.getQueryString()
 
-      const qs = queryString ? `?${queryString}` : ""
-      const basePathPrefix = basePath ? `/${basePath}` : ""
+      const prevPageNameInPath = extractPageNameFromPathName(
+        document.location.pathname,
+        basePath
+      )
+      const prevPageName =
+        prevPageNameInPath === "" ? mainPage.pageName : prevPageNameInPath
+      // It is important to compare `newPageName` with the previous one encoded in the URL
+      // to handle new session runs triggered by URL changes through the `onHistoryChange()` callback,
+      // e.g. the case where the user clicks the back button.
+      // See https://github.com/streamlit/streamlit/pull/6271#issuecomment-1465090690 for the discussion.
+      if (prevPageName !== newPageName) {
+        const queryString = this.getQueryString()
 
-      const pagePath = viewingMainPage ? "" : newPageName
-      const pageUrl = `${basePathPrefix}/${pagePath}${qs}`
+        const qs = queryString ? `?${queryString}` : ""
+        const basePathPrefix = basePath ? `/${basePath}` : ""
 
-      window.history.pushState({}, "", pageUrl)
+        const pagePath = viewingMainPage ? "" : newPageName
+        const pageUrl = `${basePathPrefix}/${pagePath}${qs}`
+
+        window.history.pushState({}, "", pageUrl)
+      }
     }
 
     this.processThemeInput(themeInput)
@@ -744,6 +839,7 @@ export class App extends PureComponent<Props, State> {
         allowRunOnSave: config.allowRunOnSave,
         hideTopBar: config.hideTopBar,
         hideSidebarNav: config.hideSidebarNav,
+        toolbarMode: config.toolbarMode,
         appPages: newSessionProto.appPages,
         currentPageScriptHash: newPageScriptHash,
         latestRunTime: performance.now(),
@@ -766,30 +862,31 @@ export class App extends PureComponent<Props, State> {
     const { scriptRunId, name: scriptName, mainScriptPath } = newSessionProto
 
     const newSessionHash = hashString(
-      SessionInfo.current.installationId + mainScriptPath
+      this.sessionInfo.current.installationId + mainScriptPath
     )
 
     // Set the title and favicon to their default values
     document.title = `${newPageName} · Streamlit`
     handleFavicon(
       `${process.env.PUBLIC_URL}/favicon.png`,
-      this.getBaseUriParts()
+      this.props.hostCommunication.sendMessage,
+      this.endpoints
     )
 
-    MetricsManager.current.setMetadata(
+    this.metricsMgr.setMetadata(
       this.props.hostCommunication.currentState.deployedAppMetadata
     )
-    MetricsManager.current.setAppHash(newSessionHash)
-    MetricsManager.current.clearDeltaCounter()
+    this.metricsMgr.setAppHash(newSessionHash)
+    this.metricsMgr.clearDeltaCounter()
 
-    MetricsManager.current.enqueue("updateReport", {
+    this.metricsMgr.enqueue("updateReport", {
       numPages: newSessionProto.appPages.length,
       isMainPage: viewingMainPage,
     })
 
     if (
       appHash === newSessionHash &&
-      currentPageScriptHash === newPageScriptHash
+      prevPageScriptHash === newPageScriptHash
     ) {
       this.setState({
         scriptRunId,
@@ -806,17 +903,35 @@ export class App extends PureComponent<Props, State> {
     const initialize = newSessionProto.initialize as Initialize
     const config = newSessionProto.config as Config
 
-    SessionInfo.current = SessionInfo.fromNewSessionMessage(newSessionProto)
+    this.sessionInfo.setCurrent(
+      SessionInfo.propsFromNewSessionMessage(newSessionProto)
+    )
 
-    MetricsManager.current.initialize({
+    this.metricsMgr.initialize({
       gatherUsageStats: config.gatherUsageStats,
     })
 
-    MetricsManager.current.enqueue("createReport", {
-      pythonVersion: SessionInfo.current.pythonVersion,
+    this.metricsMgr.enqueue("createReport", {
+      pythonVersion: this.sessionInfo.current.pythonVersion,
     })
 
     this.handleSessionStatusChanged(initialize.sessionStatus)
+  }
+
+  /**
+   * Handler called when the history state changes, e.g. `popstate` event.
+   */
+  onHistoryChange = (): void => {
+    const targetAppPage =
+      this.state.appPages.find(appPage =>
+        // The page name is embedded at the end of the URL path, and if not, we are in the main page.
+        // See https://github.com/streamlit/streamlit/blob/1.19.0/frontend/src/App.tsx#L740
+        document.location.pathname.endsWith("/" + appPage.pageName)
+      ) ?? this.state.appPages[0]
+    if (targetAppPage == null) {
+      return
+    }
+    this.onPageChange(targetAppPage.pageScriptHash as string)
   }
 
   /**
@@ -890,9 +1005,17 @@ export class App extends PureComponent<Props, State> {
     ) {
       const successful =
         status === ForwardMsg.ScriptFinishedStatus.FINISHED_SUCCESSFULLY
-      // Notify any subscribers of this event (and do it on the next cycle of
-      // the event loop)
       window.setTimeout(() => {
+        // Set the theme if url query param ?embed_options=[light,dark]_theme is set
+        const [light, dark] = this.props.theme.availableThemes.slice(1, 3)
+        if (isLightTheme()) {
+          this.setAndSendTheme(light)
+        } else if (isDarkTheme()) {
+          this.setAndSendTheme(dark)
+        } else noop() // Do nothing when ?embed_options=[light,dark]_theme is not set
+
+        // Notify any subscribers of this event (and do it on the next cycle of
+        // the event loop)
         this.state.scriptFinishedHandlers.map(handler => handler())
       }, 0)
 
@@ -926,7 +1049,7 @@ export class App extends PureComponent<Props, State> {
       // the cache.
       if (this.connectionManager !== null) {
         this.connectionManager.incrementMessageCacheRunCount(
-          SessionInfo.current.maxCachedMessageAge
+          this.sessionInfo.current.maxCachedMessageAge
         )
       }
     }
@@ -945,7 +1068,7 @@ export class App extends PureComponent<Props, State> {
         scriptRunId,
         scriptName,
         appHash,
-        elements: AppRoot.empty(),
+        elements: AppRoot.empty(this.metricsMgr),
       },
       () => {
         this.pendingElementsBuffer = this.state.elements
@@ -1018,7 +1141,7 @@ export class App extends PureComponent<Props, State> {
   }
 
   /**
-   * Used by e2e tests to test disabling widgets.
+   * Test-only method used by e2e tests to test disabling widgets.
    */
   debugShutdownRuntime = (): void => {
     if (this.isServerConnected()) {
@@ -1029,7 +1152,7 @@ export class App extends PureComponent<Props, State> {
   }
 
   /**
-   * Used by e2e tests to test reconnect behavior.
+   * Test-only method used by e2e tests to test reconnect behavior.
    */
   debugDisconnectWebsocket = (): void => {
     if (this.isServerConnected()) {
@@ -1037,6 +1160,21 @@ export class App extends PureComponent<Props, State> {
       backMsg.type = "debugDisconnectWebsocket"
       this.sendBackMsg(backMsg)
     }
+  }
+
+  /**
+   * Test-only method used by e2e tests to test fetching cached ForwardMsgs
+   * from the server.
+   */
+  debugClearForwardMsgCache = (): void => {
+    if (!isLocalhost()) {
+      return
+    }
+
+    // It's not a problem that we're mucking around with private fields since
+    // this is a test-only method anyway.
+    // @ts-expect-error
+    this.connectionManager?.connection?.cache.messages.clear()
   }
 
   /**
@@ -1062,7 +1200,7 @@ export class App extends PureComponent<Props, State> {
       return
     }
 
-    MetricsManager.current.enqueue("rerunScript")
+    this.metricsMgr.enqueue("rerunScript")
 
     this.setState({ scriptRunState: ScriptRunState.RERUN_REQUESTED })
 
@@ -1075,6 +1213,7 @@ export class App extends PureComponent<Props, State> {
       this.saveSettings({ ...this.state.userSettings, runOnSave: true })
     }
 
+    this.props.hostCommunication.onScriptRerun()
     this.widgetMgr.sendUpdateWidgetsMessage()
   }
 
@@ -1135,26 +1274,11 @@ export class App extends PureComponent<Props, State> {
       // We must be in the case where the user is navigating directly to a
       // non-main page of this app. Since we haven't received the list of the
       // app's pages from the server at this point, we fall back to requesting
-      // requesting the page to run via pageName, which we extract from
-      // document.location.pathname
-
-      // Note also that we'd prefer to write something like
-      //
-      // ```
-      // replace(
-      //   new RegExp(`^/${basePath}/?`),
-      //   ""
-      // )
-      // ```
-      //
-      // below, but that doesn't work because basePath may contain unescaped
-      // regex special-characters. This is why we're stuck with the
-      // weird-looking triple `replace()`.
-      pageName = decodeURIComponent(
-        document.location.pathname
-          .replace(`/${basePath}`, "")
-          .replace(new RegExp("^/?"), "")
-          .replace(new RegExp("/$"), "")
+      // the page to run via pageName, which we extract from
+      // document.location.pathname.
+      pageName = extractPageNameFromPathName(
+        document.location.pathname,
+        basePath
       )
       pageScriptHash = ""
     }
@@ -1190,6 +1314,7 @@ export class App extends PureComponent<Props, State> {
     backMsg.type = "stopScript"
     this.sendBackMsg(backMsg)
     this.setState({ scriptRunState: ScriptRunState.STOP_REQUESTED })
+    this.props.hostCommunication.onScriptStop()
   }
 
   /**
@@ -1210,6 +1335,22 @@ export class App extends PureComponent<Props, State> {
     }
   }
 
+  /**
+   * Shows a dialog with Deployment instructions
+   */
+  openDeployDialog = (): void => {
+    const deployDialogProps: DialogProps = {
+      type: DialogType.DEPLOY_DIALOG,
+      onClose: this.closeDialog,
+      showDeployError: this.showDeployError,
+      gitInfo: this.state.gitInfo,
+      isDeployErrorModalOpen:
+        this.state.dialog?.type === DialogType.DEPLOY_ERROR,
+      metricsMgr: this.metricsMgr,
+    }
+    this.openDialog(deployDialogProps)
+  }
+
   openThemeCreatorDialog = (): void => {
     const newDialog: DialogProps = {
       type: DialogType.THEME_CREATOR,
@@ -1220,18 +1361,19 @@ export class App extends PureComponent<Props, State> {
   }
 
   /**
-   * Asks the server to clear the st_cache
+   * Asks the server to clear the st_cache and st_cache_data and st_cache_resource
    */
   clearCache = (): void => {
     this.closeDialog()
     if (this.isServerConnected()) {
-      MetricsManager.current.enqueue("clearCache")
+      this.metricsMgr.enqueue("clearCache")
       const backMsg = new BackMsg({ clearCache: true })
       backMsg.type = "clearCache"
       this.sendBackMsg(backMsg)
     } else {
       logError("Cannot clear cache: disconnected from server")
     }
+    this.props.hostCommunication.onCacheClear()
   }
 
   /**
@@ -1270,9 +1412,13 @@ export class App extends PureComponent<Props, State> {
       allowRunOnSave: this.state.allowRunOnSave,
       onSave: this.saveSettings,
       onClose: () => {},
-      developerMode: this.state.developerMode,
+      developerMode: showDevelopmentOptions(
+        this.props.hostCommunication.currentState.isOwner,
+        this.state.toolbarMode
+      ),
       openThemeCreator: this.openThemeCreatorDialog,
       animateModal,
+      metricsMgr: this.metricsMgr,
     }
     this.openDialog(newDialog)
   }
@@ -1281,10 +1427,39 @@ export class App extends PureComponent<Props, State> {
     const { menuItems } = this.state
     const newDialog: DialogProps = {
       type: DialogType.ABOUT,
+      sessionInfo: this.sessionInfo,
       onClose: this.closeDialog,
       aboutSectionMd: menuItems?.aboutSectionMd,
     }
     this.openDialog(newDialog)
+  }
+
+  /**
+   * Prints the app, if the app is in IFrame
+   * it prints the content of the IFrame.
+   * Before printing this function ensures the app has fully loaded,
+   * by checking if we're in ScriptRunState.NOT_RUNNING state.
+   */
+  printCallback = (): void => {
+    const { scriptRunState } = this.state
+    if (scriptRunState !== ScriptRunState.NOT_RUNNING) {
+      setTimeout(this.printCallback, 500)
+      return
+    }
+    let windowToPrint
+    try {
+      const htmlIFrameElement = getIFrameEnclosingApp(this.embeddingId)
+      if (htmlIFrameElement && htmlIFrameElement.contentWindow) {
+        windowToPrint = htmlIFrameElement.contentWindow.window
+      } else {
+        windowToPrint = window
+      }
+    } catch (err) {
+      windowToPrint = window
+    } finally {
+      if (!windowToPrint) windowToPrint = window
+      windowToPrint.print()
+    }
   }
 
   screencastCallback = (): void => {
@@ -1334,6 +1509,33 @@ export class App extends PureComponent<Props, State> {
     return queryString.startsWith("?") ? queryString.substring(1) : queryString
   }
 
+  isInCloudEnvironment = (): boolean => {
+    const { menuItems } = this.props.hostCommunication.currentState
+    return menuItems && menuItems?.length > 0
+  }
+
+  showDeployButton = (): boolean => {
+    return (
+      isTesting() ||
+      (SHOW_DEPLOY_BUTTON &&
+        showDevelopmentOptions(
+          this.props.hostCommunication.currentState.isOwner,
+          this.state.toolbarMode
+        ) &&
+        !this.isInCloudEnvironment() &&
+        this.sessionInfo.isSet &&
+        !this.sessionInfo.isHello)
+    )
+  }
+
+  deployButtonClicked = (): void => {
+    if (!isTesting()) {
+      this.metricsMgr.enqueue("deployButtonInApp", { clicked: true })
+    }
+    this.sendLoadGitInfoBackMsg()
+    this.openDeployDialog()
+  }
+
   render(): JSX.Element {
     const {
       allowRunOnSave,
@@ -1343,7 +1545,6 @@ export class App extends PureComponent<Props, State> {
       initialSidebarState,
       menuItems,
       isFullScreen,
-      layout,
       scriptRunId,
       scriptRunState,
       userSettings,
@@ -1352,14 +1553,22 @@ export class App extends PureComponent<Props, State> {
       hideSidebarNav,
       currentPageScriptHash,
     } = this.state
+    const developmentMode = showDevelopmentOptions(
+      this.props.hostCommunication.currentState.isOwner,
+      this.state.toolbarMode
+    )
 
     const { hideSidebarNav: hostHideSidebarNav } =
       this.props.hostCommunication.currentState
 
-    const outerDivClass = classNames("stApp", {
-      "streamlit-embedded": isEmbeddedInIFrame(),
-      "streamlit-wide": userSettings.wideMode,
-    })
+    const outerDivClass = classNames(
+      "stApp",
+      getEmbeddingIdClassName(this.embeddingId),
+      {
+        "streamlit-embedded": isEmbed(),
+        "streamlit-wide": userSettings.wideMode,
+      }
+    )
 
     const renderedDialog: React.ReactNode = dialog
       ? StreamlitDialog({
@@ -1376,9 +1585,7 @@ export class App extends PureComponent<Props, State> {
       <AppContext.Provider
         value={{
           initialSidebarState,
-          layout,
           wideMode: userSettings.wideMode,
-          embedded: isEmbeddedInIFrame(),
           isFullScreen,
           setFullScreen: this.handleFullScreen,
           addScriptFinishedHandler: this.addScriptFinishedHandler,
@@ -1389,7 +1596,12 @@ export class App extends PureComponent<Props, State> {
           addThemes: this.props.theme.addThemes,
           sidebarChevronDownshift:
             this.props.hostCommunication.currentState.sidebarChevronDownshift,
-          getBaseUriParts: this.getBaseUriParts,
+          embedded: isEmbed(),
+          showPadding: !isEmbed() || isPaddingDisplayed(),
+          disableScrolling: isScrollingHidden(),
+          showFooter: !isEmbed() || isFooterDisplayed(),
+          showToolbar: !isEmbed() || isToolbarDisplayed(),
+          showColoredLine: !isEmbed() || isColoredLineDisplayed(),
         }}
       >
         <HotKeys
@@ -1421,18 +1633,22 @@ export class App extends PureComponent<Props, State> {
                   />
                 </>
               )}
+              {this.showDeployButton() && (
+                <DeployButton onClick={this.deployButtonClicked.bind(this)} />
+              )}
               <MainMenu
                 isServerConnected={this.isServerConnected()}
                 quickRerunCallback={this.rerunScript}
                 clearCacheCallback={this.openClearCacheDialog}
                 settingsCallback={this.settingsCallback}
                 aboutCallback={this.aboutCallback}
+                printCallback={this.printCallback}
                 screencastCallback={this.screencastCallback}
                 screenCastState={this.props.screenCast.currentState}
                 hostMenuItems={
                   this.props.hostCommunication.currentState.menuItems
                 }
-                hostIsOwner={this.props.hostCommunication.currentState.isOwner}
+                developmentMode={developmentMode}
                 sendMessageToHost={this.props.hostCommunication.sendMessage}
                 gitInfo={gitInfo}
                 showDeployError={this.showDeployError}
@@ -1441,12 +1657,17 @@ export class App extends PureComponent<Props, State> {
                   this.state.dialog?.type === DialogType.DEPLOY_ERROR
                 }
                 loadGitInfo={this.sendLoadGitInfoBackMsg}
-                canDeploy={SessionInfo.isSet() && !SessionInfo.isHello}
+                canDeploy={this.sessionInfo.isSet && !this.sessionInfo.isHello}
                 menuItems={menuItems}
+                metricsMgr={this.metricsMgr}
+                toolbarMode={this.state.toolbarMode}
               />
             </Header>
 
             <AppView
+              endpoints={this.endpoints}
+              sessionInfo={this.sessionInfo}
+              sendMessageToHost={this.props.hostCommunication.sendMessage}
               elements={elements}
               scriptRunId={scriptRunId}
               scriptRunState={scriptRunState}

@@ -31,7 +31,7 @@ import { SessionEventDispatcher } from "src/lib/SessionEventDispatcher"
 import { ScriptRunState } from "src/lib/ScriptRunState"
 import { Timer } from "src/lib/Timer"
 import Icon from "src/components/shared/Icon"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
 
 /*
  * IMPORTANT: If you change the asset import below, make sure it still works if Streamlit is served
@@ -77,7 +77,7 @@ export interface StatusWidgetProps {
   /** Allows users to change user settings to allow rerun on save */
   allowRunOnSave: boolean
 
-  theme: Theme
+  theme: EmotionTheme
 }
 
 /** Component state */
@@ -157,8 +157,7 @@ class StatusWidget extends PureComponent<StatusWidgetProps, State> {
 
   /** Called by React on prop changes */
   public static getDerivedStateFromProps(
-    props: Readonly<StatusWidgetProps>,
-    state: State
+    props: Readonly<StatusWidgetProps>
   ): Partial<State> | null {
     // Reset transient event-related state when prop changes
     // render that state irrelevant

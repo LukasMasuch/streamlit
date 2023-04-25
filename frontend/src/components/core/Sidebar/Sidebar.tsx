@@ -22,7 +22,9 @@ import { Resizable } from "re-resizable"
 import Icon from "src/components/shared/Icon"
 import Button, { Kind } from "src/components/shared/Button"
 import { IAppPage, PageConfig } from "src/autogen/proto"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
+import { localStorageAvailable } from "src/lib/storageUtils"
+import { StreamlitEndpoints } from "src/lib/StreamlitEndpoints"
 
 import {
   StyledSidebar,
@@ -36,10 +38,11 @@ import IsSidebarContext from "./IsSidebarContext"
 import SidebarNav from "./SidebarNav"
 
 export interface SidebarProps {
+  endpoints: StreamlitEndpoints
   chevronDownshift: number
   children?: ReactElement
   initialSidebarState?: PageConfig.SidebarState
-  theme: Theme
+  theme: EmotionTheme
   hasElements: boolean
   appPages: IAppPage[]
   onPageChange: (pageName: string) => void
@@ -74,10 +77,14 @@ class Sidebar extends PureComponent<SidebarProps, State> {
     this.mediumBreakpointPx = Sidebar.calculateMaxBreakpoint(
       props.theme.breakpoints.md
     )
+
+    const cachedSidebarWidth = localStorageAvailable()
+      ? localStorage.getItem("sidebarWidth")
+      : undefined
+
     this.state = {
       collapsedSidebar: Sidebar.shouldCollapse(props, this.mediumBreakpointPx),
-      sidebarWidth:
-        window.localStorage.getItem("sidebarWidth") || Sidebar.minWidth,
+      sidebarWidth: cachedSidebarWidth || Sidebar.minWidth,
       lastInnerWidth: window ? window.innerWidth : Infinity,
       hideScrollbar: false,
     }
@@ -145,14 +152,19 @@ class Sidebar extends PureComponent<SidebarProps, State> {
     const newWidth = width.toString()
 
     this.setState({ sidebarWidth: newWidth })
-    window.localStorage.setItem("sidebarWidth", newWidth)
+
+    if (localStorageAvailable()) {
+      window.localStorage.setItem("sidebarWidth", newWidth)
+    }
   }
 
   resetSidebarWidth = (event: any): void => {
     // Double clicking on the resize handle resets sidebar to default width
     if (event.detail === 2) {
       this.setState({ sidebarWidth: Sidebar.minWidth })
-      window.localStorage.setItem("sidebarWidth", Sidebar.minWidth)
+      if (localStorageAvailable()) {
+        window.localStorage.setItem("sidebarWidth", Sidebar.minWidth)
+      }
     }
   }
 
@@ -234,7 +246,7 @@ class Sidebar extends PureComponent<SidebarProps, State> {
             this.setSidebarWidth(newWidth)
           }}
           // Props part of StyledSidebar, but not Resizable component
-          // @ts-ignore
+          // @ts-expect-error
           isCollapsed={collapsedSidebar}
           sidebarWidth={sidebarWidth}
         >
@@ -249,6 +261,7 @@ class Sidebar extends PureComponent<SidebarProps, State> {
             </StyledSidebarCloseButton>
             {!hideSidebarNav && (
               <SidebarNav
+                endpoints={this.props.endpoints}
                 appPages={appPages}
                 collapseSidebar={this.toggleCollapse}
                 currentPageScriptHash={currentPageScriptHash}

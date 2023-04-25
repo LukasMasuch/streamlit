@@ -17,9 +17,10 @@
 import styled from "@emotion/styled"
 import { keyframes } from "@emotion/react"
 import { Keyframes } from "@emotion/serialize"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
+import { transparentize } from "color2k"
 
-const recordingIndicatorPulse = (theme: Theme): Keyframes => keyframes`
+const recordingIndicatorPulse = (theme: EmotionTheme): Keyframes => keyframes`
 0% {
   box-shadow: 0 0 ${theme.spacing.twoXS} ${theme.colors.red};
 }
@@ -104,6 +105,9 @@ export const StyledMenuItem = styled.ul<ItemProps>(
       cursor: "pointer",
       ...(recordingStyles || {}),
       ...disabledStyles,
+      "@media print": {
+        display: "none !important",
+      },
     }
   }
 )
@@ -111,7 +115,9 @@ export const StyledMenuItem = styled.ul<ItemProps>(
 export const StyledCoreItem = styled.li<ItemStyleProps>(
   ({ isHighlighted, styleProps, theme }) => {
     const highlightedStyles = isHighlighted && {
-      backgroundColor: theme.colors.secondaryBg,
+      "&:hover": {
+        backgroundColor: theme.colors.secondaryBg,
+      },
     }
 
     const margin = styleProps?.margin || 0
@@ -135,7 +141,11 @@ export const StyledCoreItem = styled.li<ItemStyleProps>(
 export const StyledDevItem = styled.li<ItemStyleProps>(
   ({ isHighlighted, styleProps, theme }) => {
     const highlightedStyles = isHighlighted && {
-      backgroundColor: theme.colors.primaryBg,
+      "&:hover": {
+        // Whatever color we use here as the hover state, we want to transparentize it
+        // to its full extend, so you can see the underlying color of the menu.
+        backgroundColor: transparentize(theme.colors.secondaryBg, 1),
+      },
     }
     const margin = styleProps?.margin || 0
     const padding =
@@ -161,7 +171,7 @@ export const StyledMenuItemLabel = styled.span(({ theme }) => ({
   fontFamily: theme.fonts.sansSerif,
 }))
 
-export const StyledUl = styled.ul(({ theme }) => ({
+export const StyledUl = styled.ul(() => ({
   borderBottom: "$1px solid rgba(38, 39, 48, 0.2)",
   borderTop: "$1px solid rgba(38, 39, 48, 0.2)",
   margin: "-.20rem 0 -.5rem 0",

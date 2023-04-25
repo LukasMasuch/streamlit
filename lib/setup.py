@@ -21,7 +21,7 @@ from setuptools.command.install import install
 
 THIS_DIRECTORY = Path(__file__).parent
 
-VERSION = "1.17.0"  # PEP-440
+VERSION = "1.21.0"  # PEP-440
 
 NAME = "streamlit"
 
@@ -29,7 +29,7 @@ NAME = "streamlit"
 # And if you do add one, make the required version as general as possible.
 # But include relevant lower bounds for any features we use from our dependencies.
 INSTALL_REQUIRES = [
-    "altair>=3.2.0",
+    "altair<5,>=3.2.0",
     "blinker>=1.0.0",
     "cachetools>=4.0",
     "click>=7.0",
@@ -37,7 +37,7 @@ INSTALL_REQUIRES = [
     "importlib-metadata>=1.4",
     "numpy",
     "packaging>=14.1",
-    "pandas>=0.25",
+    "pandas<3,>=0.25",
     "pillow>=6.2.0",
     "protobuf<4,>=3.12",
     "pyarrow>=4.0",
@@ -45,7 +45,7 @@ INSTALL_REQUIRES = [
     "python-dateutil",
     "requests>=2.4",
     "rich>=10.11.0",
-    "semver",
+    "tenacity<9,>=8.0.0",
     "toml",
     "typing-extensions>=3.10.0.0",
     "tzlocal>=1.1",
@@ -62,8 +62,9 @@ INSTALL_REQUIRES = [
 SNOWPARK_CONDA_EXCLUDED_DEPENDENCIES = [
     "gitpython!=3.1.19",
     "pydeck>=0.1.dev5",
-    # 5.0 has a fix for etag header: https://github.com/tornadoweb/tornado/issues/2262
-    "tornado>=5.0",
+    # Tornado 6.0.3 was the current Tornado version when Python 3.8, our earliest supported Python version,
+    # was released (Oct 14, 2019).
+    "tornado>=6.0.3",
 ]
 
 if not os.getenv("SNOWPARK_CONDA_BUILD"):
@@ -100,7 +101,7 @@ else:
 setuptools.setup(
     name=NAME,
     version=VERSION,
-    description="The fastest way to build data apps in Python",
+    description="A faster way to build and share data apps",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://streamlit.io",

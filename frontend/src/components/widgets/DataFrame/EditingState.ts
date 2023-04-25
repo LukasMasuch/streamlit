@@ -54,12 +54,17 @@ class EditingState {
     })
 
     const currentState = {
+      // We use snake case here since this is the widget state
+      // that is sent and used in the backend. Therefore, it should
+      // conform with the Python naming conventions.
       edited_cells: {} as Record<string, any>,
       added_rows: [] as Record<number, any>[],
       deleted_rows: [] as number[],
     }
 
-    // Prepare edited cells
+    // Loop through all edited cells and transform into the structure
+    // we use for the JSON-compatible widget state:
+    // "<rowIndex>:<colIndex>" -> edited value
     this.editedCells.forEach(
       (row: Map<number, GridCell>, rowIndex: number, _map) => {
         row.forEach((cell: GridCell, colIndex: number, _map) => {
@@ -72,7 +77,9 @@ class EditingState {
       }
     )
 
-    // Prepare added rows
+    // Loop through all added rows and transform into the format that
+    // we use for the JSON-compatible widget state:
+    // List of column index -> edited value
     this.addedRows.forEach((row: Map<number, GridCell>) => {
       const addedRow: Record<number, any> = {}
       row.forEach((cell: GridCell, colIndex: number, _map) => {
@@ -87,13 +94,75 @@ class EditingState {
       currentState.added_rows.push(addedRow)
     })
 
+    // The deleted rows don't need to be transformed
     currentState.deleted_rows = this.deletedRows
+
     // Convert undefined values to null, otherwise this is removed here since
     // undefined does not exist in JSON.
     const json = JSON.stringify(currentState, (k, v) =>
       v === undefined ? null : v
     )
     return json
+  }
+
+  /**
+   * Load the editing state from a JSON string.
+   *
+   * @param columns - The columns of the table
+   * @returns JSON string
+   */
+  fromJson(editingStateJson: string, columns: BaseColumn[]): void {
+    const editingState = JSON.parse(editingStateJson)
+    // Map columns to column index
+    const columnsByIndex = new Map<number, BaseColumn>()
+    columns.forEach(column => {
+      columnsByIndex.set(column.indexNumber, column)
+    })
+
+    // Loop through all edited cells and transform into the structure
+    // we use for the editing state:
+    // row -> column -> GridCell
+    Object.keys(editingState.edited_cells).forEach(key => {
+      const [rowIndex, colIndex] = key.split(":").map(Number)
+      const column = columnsByIndex.get(colIndex)
+      if (column) {
+        const cell = column.getCell(editingState.edited_cells[key])
+        if (cell) {
+          if (this.editedCells.has(rowIndex) == false) {
+            this.editedCells.set(rowIndex, new Map())
+          }
+          this.editedCells.get(rowIndex)?.set(colIndex, cell)
+        }
+      }
+    })
+
+    // Loop through all added rows and transform into the format that
+    // we use for the editing state:
+    // List of column index -> edited value
+    editingState.added_rows.forEach((row: Record<number, any>) => {
+      const addedRow: Map<number, GridCell> = new Map()
+
+      // Initialize all cells in row with undefined (empty)
+      columns.forEach(column => {
+        addedRow.set(column.indexNumber, column.getCell(undefined))
+      })
+
+      // Set the cells that were actually edited in the row
+      Object.keys(row).forEach(colIndex => {
+        const column = columnsByIndex.get(Number(colIndex))
+
+        if (column) {
+          const cell = column.getCell(row[Number(colIndex)])
+          if (cell) {
+            addedRow.set(Number(colIndex), cell)
+          }
+        }
+      })
+      this.addedRows.push(addedRow)
+    })
+
+    // The deleted rows don't need to be transformed
+    this.deletedRows = editingState.deleted_rows
   }
 
   /**

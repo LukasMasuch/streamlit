@@ -34,13 +34,22 @@ from typing import (
 
 import pandas as pd
 import pyarrow as pa
+<<<<<<< HEAD
 from pandas.api.types import is_datetime64_any_dtype, is_float_dtype, is_integer_dtype
+=======
+from pandas.api.types import (
+    is_datetime64_any_dtype,
+    is_datetime64tz_dtype,
+    is_float_dtype,
+    is_integer_dtype,
+)
 from pandas.io.formats.style import Styler
+>>>>>>> b074b92803c2e44b02277310a5e27e5d3e2caa9e
 from typing_extensions import Final, Literal, TypeAlias, TypedDict
 
 from streamlit import type_util
-from streamlit.elements.arrow import marshall
 from streamlit.elements.form import current_form_id
+from streamlit.elements.lib.pandas_styler_utils import marshall_styler
 from streamlit.errors import StreamlitAPIException
 from streamlit.proto.Arrow_pb2 import Arrow as ArrowProto
 from streamlit.runtime.metrics_util import gather_metrics
@@ -51,10 +60,11 @@ from streamlit.runtime.state import (
     WidgetKwargs,
     register_widget,
 )
-from streamlit.type_util import DataFormat, DataFrameGenericAlias, Key, to_key
+from streamlit.type_util import DataFormat, DataFrameGenericAlias, Key, is_type, to_key
 
 if TYPE_CHECKING:
     import numpy as np
+    from pandas.io.formats.style import Styler
 
     from streamlit.delta_generator import DeltaGenerator
 
@@ -81,7 +91,7 @@ EditableData = TypeVar(
 DataTypes: TypeAlias = Union[
     pd.DataFrame,
     pd.Index,
-    Styler,
+    "Styler",
     pa.Table,
     "np.ndarray[Any, np.dtype[np.float64]]",
     Tuple[Any],
@@ -92,8 +102,12 @@ DataTypes: TypeAlias = Union[
 
 
 class ColumnConfig(TypedDict, total=False):
-    width: Optional[int]
     title: Optional[str]
+    width: Optional[Literal["small", "medium", "large"]]
+    hidden: Optional[bool]
+    disabled: Optional[bool]
+    required: Optional[bool]
+    alignment: Optional[Literal["left", "center", "right"]]
     type: Optional[
         Literal[
             "text",
@@ -103,11 +117,7 @@ class ColumnConfig(TypedDict, total=False):
             "categorical",
         ]
     ]
-    hidden: Optional[bool]
-    editable: Optional[bool]
-    alignment: Optional[Literal["left", "center", "right"]]
-    metadata: Optional[Dict[str, Any]]
-    column: Optional[Union[str, int]]
+    type_options: Optional[Dict[str, Any]]
 
 
 class EditingState(TypedDict, total=False):
@@ -190,34 +200,37 @@ class DataEditorSerde:
         return json.dumps(editing_state, default=str)
 
 
-def _parse_value(value: Union[str, int, float, bool, None], dtype) -> Any:
+def _parse_value(value: Union[str, int, float, bool, None], orig_col) -> Any:
     """Convert a value to the correct type.
-
     Parameters
     ----------
     value : str | int | float | bool | None
         The value to convert.
-
-    dtype
-        The type of the value.
-
+    orig_col
+        The original column in order to use infer_dtype or check .dtype
     Returns
     -------
     The converted value.
     """
     if value is None:
         return None
-
-    # TODO(lukasmasuch): how to deal with date & time columns?
-
-    # Datetime values try to parse the value to datetime:
-    # The value is expected to be a ISO 8601 string
-    if is_datetime64_any_dtype(dtype):
-        return pd.to_datetime(value, errors="ignore")
-    elif is_integer_dtype(dtype):
+    if pd.api.types.infer_dtype(orig_col) == "time":
+        return maybe_convert_datetime_time_edit_df(value)
+    elif pd.api.types.infer_dtype(orig_col) == "date":
+        return maybe_convert_datetime_date_edit_df(value)
+    elif is_datetime64_any_dtype(orig_col.dtype):
+        if is_datetime64tz_dtype(orig_col.dtype):
+            return pd.to_datetime(value, errors="ignore")
+        else:
+            try:
+                return pd.to_datetime(value, errors="ignore").replace(tzinfo=None)
+            except:
+                # default with timezone
+                return pd.to_datetime(value, errors="ignore")
+    elif is_integer_dtype(orig_col.dtype):
         with contextlib.suppress(ValueError):
             return int(value)
-    elif is_float_dtype(dtype):
+    elif is_float_dtype(orig_col.dtype):
         with contextlib.suppress(ValueError):
             return float(value)
     return value
@@ -247,13 +260,13 @@ def _apply_cell_edits(
             # The edited cell is part of the index
             # To support multi-index in the future: use a tuple of values here
             # instead of a single value
-            df.index.values[row_pos] = _parse_value(value, df.index.dtype)
+            df.index.values[row_pos] = _parse_value(value, df.index)
         else:
             # We need to subtract the number of index levels from col_pos
             # to get the correct column position for Pandas DataFrames
             mapped_column = col_pos - index_count
             df.iat[row_pos, mapped_column] = _parse_value(
-                value, df.iloc[:, mapped_column].dtype
+                value, df.iloc[:, mapped_column]
             )
 
 
@@ -292,14 +305,12 @@ def _apply_row_additions(df: pd.DataFrame, added_rows: List[Dict[str, Any]]) -> 
             if col_pos < index_count:
                 # To support multi-index in the future: use a tuple of values here
                 # instead of a single value
-                index_value = _parse_value(value, df.index.dtype)
+                index_value = _parse_value(value, df.index)
             else:
                 # We need to subtract the number of index levels from the col_pos
                 # to get the correct column position for Pandas DataFrames
                 mapped_column = col_pos - index_count
-                new_row[mapped_column] = _parse_value(
-                    value, df.iloc[:, mapped_column].dtype
-                )
+                new_row[mapped_column] = _parse_value(value, df.iloc[:, mapped_column])
         # Append the new row to the dataframe
         if range_index_stop is not None:
             df.loc[range_index_stop, :] = new_row
@@ -376,7 +387,7 @@ def _apply_data_specific_configs(
         if type_util.is_colum_type_arrow_incompatible(column_data):
             if column_name not in columns_config:
                 columns_config[column_name] = {}
-            columns_config[column_name]["editable"] = False
+            columns_config[column_name]["disabled"] = True
             # Convert incompatible type to string
             data_df[column_name] = column_data.astype(str)
 
@@ -419,13 +430,12 @@ class DataEditorMixin:
         width: Optional[int] = None,
         height: Optional[int] = None,
         use_container_width: bool = False,
+        num_rows: Literal["fixed", "dynamic"] = "fixed",
         disabled: bool = False,
         key: Optional[Key] = None,
         on_change: Optional[WidgetCallback] = None,
         args: Optional[WidgetArgs] = None,
         kwargs: Optional[WidgetKwargs] = None,
-        columns: Optional[ColumnConfigMapping] = None,
-        num_rows: Literal["fixed", "dynamic"] = "fixed",
     ) -> EditableData:
         pass
 
@@ -437,13 +447,12 @@ class DataEditorMixin:
         width: Optional[int] = None,
         height: Optional[int] = None,
         use_container_width: bool = False,
+        num_rows: Literal["fixed", "dynamic"] = "fixed",
         disabled: bool = False,
         key: Optional[Key] = None,
         on_change: Optional[WidgetCallback] = None,
         args: Optional[WidgetArgs] = None,
         kwargs: Optional[WidgetKwargs] = None,
-        columns: Optional[ColumnConfigMapping] = None,
-        num_rows: Literal["fixed", "dynamic"] = "fixed",
     ) -> pd.DataFrame:
         pass
 
@@ -455,18 +464,17 @@ class DataEditorMixin:
         width: Optional[int] = None,
         height: Optional[int] = None,
         use_container_width: bool = False,
+        num_rows: Literal["fixed", "dynamic"] = "fixed",
         disabled: bool = False,
         key: Optional[Key] = None,
         on_change: Optional[WidgetCallback] = None,
         args: Optional[WidgetArgs] = None,
         kwargs: Optional[WidgetKwargs] = None,
-        columns: Optional[ColumnConfigMapping] = None,
-        num_rows: Literal["fixed", "dynamic"] = "fixed",
     ) -> DataTypes:
         """Display a data editor widget.
 
-        This widget allows you to edit DataFrames and many other data structures
-        in a table-like UI.
+        Display a data editor widget that allows you to edit DataFrames and
+        many other data structures in a table-like UI.
 
         Parameters
         ----------
@@ -474,40 +482,94 @@ class DataEditorMixin:
             The data to edit in the data editor.
 
         width : int or None
-            Desired width of the data editor expressed in pixels. If None, the width
-            will be automatically calculated based on the container width.
+            Desired width of the data editor expressed in pixels. If None, the width will
+            be automatically determined.
+
         height : int or None
-            Desired height of the data editor expressed in pixels. If None, a
-            default height is used.
+            Desired height of the data editor expressed in pixels. If None, the height will
+            be automatically determined.
+
         use_container_width : bool
             If True, set the data editor width to the width of the parent container.
             This takes precedence over the width argument. Defaults to False.
+
+        num_rows : "fixed" or "dynamic"
+            Specifies if the user can add and delete rows in the data editor.
+            If "fixed", the user cannot add or delete rows. If "dynamic", the user can
+            add and delete rows in the data editor, but column sorting is disabled.
+            Defaults to "fixed".
+
         disabled : bool
-            If True, the data editor will be disabled and not allow any edits.
+            An optional boolean which, if True, disables the data editor and prevents
+            any edits. Defaults to False. This argument can only be supplied by keyword.
+
         key : str
             An optional string to use as the unique key for this widget. If this
             is omitted, a key will be generated for the widget based on its
             content. Multiple widgets of the same type may not share the same
             key.
+
         on_change : callable
             An optional callback invoked when this data_editor's value changes.
+
         args : tuple
             An optional tuple of args to pass to the callback.
+
         kwargs : dict
             An optional dict of kwargs to pass to the callback.
-        num_rows : "fixed" or "dynamic"
-            If "dynamic", the user can add and delete rows in the data editor.
-            If "fixed", the user cannot add or delete rows. Defaults to "fixed".
-            Note: "dynamic" mode does not allow the user to sort columns.
 
         Returns
         -------
-        The edited data. The data is returned in its original data type for pd.DataFrame,
-        pd.Styler, pyarrow.Table, np.ndarray, list, set, tuple, and dict.
-        Other data types are returned as a pd.DataFrame.
+        pd.DataFrame, pd.Styler, pyarrow.Table, np.ndarray, list, set, tuple, or dict.
+            The edited data. The edited data is returned in its original data type if
+            it corresponds to any of the supported return types. All other data types
+            are returned as a ``pd.DataFrame``.
+
+        Examples
+        --------
+        >>> import streamlit as st
+        >>> import pandas as pd
+        >>>
+        >>> df = pd.DataFrame(
+        >>>     [
+        >>>        {"command": "st.selectbox", "rating": 4, "is_widget": True},
+        >>>        {"command": "st.balloons", "rating": 5, "is_widget": False},
+        >>>        {"command": "st.time_input", "rating": 3, "is_widget": True},
+        >>>    ]
+        >>> )
+        >>> edited_df = st.experimental_data_editor(df)
+        >>>
+        >>> favorite_command = edited_df.loc[edited_df["rating"].idxmax()]["command"]
+        >>> st.markdown(f"Your favorite command is **{favorite_command}** 🎈")
+
+        .. output::
+           https://doc-data-editor.streamlit.app/
+           height: 350px
+
+        You can also allow the user to add and delete rows by setting ``num_rows`` to "dynamic":
+
+        >>> import streamlit as st
+        >>> import pandas as pd
+        >>>
+        >>> df = pd.DataFrame(
+        >>>     [
+        >>>        {"command": "st.selectbox", "rating": 4, "is_widget": True},
+        >>>        {"command": "st.balloons", "rating": 5, "is_widget": False},
+        >>>        {"command": "st.time_input", "rating": 3, "is_widget": True},
+        >>>    ]
+        >>> )
+        >>> edited_df = st.experimental_data_editor(df, num_rows="dynamic")
+        >>>
+        >>> favorite_command = edited_df.loc[edited_df["rating"].idxmax()]["command"]
+        >>> st.markdown(f"Your favorite command is **{favorite_command}** 🎈")
+
+        .. output::
+           https://doc-data-editor1.streamlit.app/
+           height: 450px
+
         """
 
-        columns_config: ColumnConfigMapping = {} if columns is None else columns
+        columns_config: ColumnConfigMapping = {}
 
         data_format = type_util.determine_data_format(data)
         if data_format == DataFormat.UNKNOWN:
@@ -521,12 +583,18 @@ class DataEditorMixin:
         data_df = type_util.convert_anything_to_df(data, ensure_copy=True)
 
         # Check if the index is supported.
-        # Theoretically, we could also support Int64Index and Float64Index here,
-        # but those indices are deprecated and will be removed in the future.
-        if type(data_df.index) not in [
-            pd.RangeIndex,
-            pd.Index,
-        ]:
+        if not (
+            type(data_df.index)
+            in [
+                pd.RangeIndex,
+                pd.Index,
+            ]
+            # We need to check these index types without importing, since they are deprecated
+            # and planned to be removed soon.
+            or is_type(data_df.index, "pandas.core.indexes.numeric.Int64Index")
+            or is_type(data_df.index, "pandas.core.indexes.numeric.Float64Index")
+            or is_type(data_df.index, "pandas.core.indexes.numeric.UInt64Index")
+        ):
             raise StreamlitAPIException(
                 f"The type of the dataframe index - {type(data_df.index).__name__} - is not "
                 "yet supported by the data editor."
@@ -534,8 +602,12 @@ class DataEditorMixin:
 
         _apply_data_specific_configs(columns_config, data_df, data_format)
 
-        delta_path = self.dg._get_delta_path_str()
-        default_uuid = str(hash(delta_path))
+        # Temporary workaround: We hide range indices if num_rows is dynamic.
+        # since the current way of handling this index during editing is a bit confusing.
+        if type(data_df.index) is pd.RangeIndex and num_rows == "dynamic":
+            if _INDEX_IDENTIFIER not in columns_config:
+                columns_config[_INDEX_IDENTIFIER] = {}
+            columns_config[_INDEX_IDENTIFIER]["hidden"] = True
 
         proto = ArrowProto()
         proto.use_container_width = use_container_width
@@ -552,7 +624,15 @@ class DataEditorMixin:
         )
         proto.form_id = current_form_id(self.dg)
 
-        marshall(proto, data_df, default_uuid)
+        if type_util.is_pandas_styler(data):
+            # Pandas styler will only work for non-editable/disabled columns.
+            delta_path = self.dg._get_delta_path_str()
+            default_uuid = str(hash(delta_path))
+            marshall_styler(proto, data, default_uuid)
+
+        table = pa.Table.from_pandas(data_df)
+        proto.data = type_util.pyarrow_table_to_bytes(table)
+
         _marshall_column_config(proto, columns_config)
 
         serde = DataEditorSerde()

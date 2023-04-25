@@ -19,9 +19,6 @@ export const DEPLOY_URL = "https://share.streamlit.io/deploy"
 export const STREAMLIT_CLOUD_URL = "https://streamlit.io/cloud"
 export const ONLINE_DOCS_URL = "https://docs.streamlit.io"
 export const COMMUNITY_URL = "https://discuss.streamlit.io"
-export const TEAMS_URL = "https://streamlit.io/for-teams"
-export const BUG_URL =
-  "https://github.com/streamlit/streamlit/issues/new/choose"
 
 /** The URL customers are directed to for troubleshooting components. */
 export const COMPONENT_DEVELOPER_URL =
@@ -30,3 +27,8 @@ export const COMPONENT_DEVELOPER_URL =
 /** The URL customers are directed to for troubleshooting camera permissions. */
 export const CAMERA_PERMISSION_URL =
   "https://docs.streamlit.io/knowledge-base/using-streamlit/enable-camera"
+
+export const STREAMLIT_COMMUNITY_CLOUD_DOCS_URL =
+  "https://docs.streamlit.io/streamlit-community-cloud/get-started"
+export const STREAMLIT_DEPLOY_TUTORIAL_URL =
+  "https://docs.streamlit.io/knowledge-base/tutorials/deploy"

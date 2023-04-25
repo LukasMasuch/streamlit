@@ -22,6 +22,9 @@ import ListColumn from "./ListColumn"
 import NumberColumn from "./NumberColumn"
 
 import { ColumnCreator } from "./utils"
+import DateColumn from "./DateColumn"
+import TimeColumn from "./TimeColumn"
+import DateTimeColumn from "./DateTimeColumn"
 
 export * from "./utils"
 
@@ -34,6 +37,9 @@ export const ColumnTypes = new Map<string, ColumnCreator>(
     text: TextColumn,
     boolean: BooleanColumn,
     categorical: CategoricalColumn,
+    date: DateColumn,
+    datetime: DateTimeColumn,
+    time: TimeColumn,
     list: ListColumn,
     number: NumberColumn,
   })
@@ -44,6 +50,9 @@ export {
   TextColumn,
   BooleanColumn,
   CategoricalColumn,
+  DateColumn,
+  DateTimeColumn,
+  TimeColumn,
   ListColumn,
   NumberColumn,
 }

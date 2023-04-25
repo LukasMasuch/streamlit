@@ -15,19 +15,21 @@
  */
 
 import nodeEmoji from "node-emoji"
-import { BaseUriParts, buildMediaUri } from "src/lib/UriUtil"
 import { grabTheRightIcon } from "src/vendor/twemoji"
-import { sendMessageToHost } from "src/hocs/withHostCommunication"
+import { IGuestToHostMessage } from "src/hocs/withHostCommunication/types"
+import { StreamlitEndpoints } from "src/lib/StreamlitEndpoints"
 
 /**
  * Set the provided url/emoji as the page favicon.
  *
- * @param {string} favicon may be an image url, or an emoji like 🍕 or :pizza:
- * @param {function} callback
+ * @param {string} favicon an image url, or an emoji like 🍕 or :pizza:
+ * @param sendMessageToHost a function that posts messages to the app's parent iframe
+ * @param endpoints
  */
 export function handleFavicon(
   favicon: string,
-  baseUriParts?: BaseUriParts
+  sendMessageToHost: (message: IGuestToHostMessage) => void,
+  endpoints: StreamlitEndpoints
 ): void {
   const emoji = extractEmoji(favicon)
   let imageUrl
@@ -39,7 +41,7 @@ export function handleFavicon(
 
     imageUrl = emojiUrl
   } else {
-    imageUrl = buildMediaUri(favicon, baseUriParts)
+    imageUrl = endpoints.buildMediaURL(favicon)
   }
 
   overwriteFavicon(imageUrl)

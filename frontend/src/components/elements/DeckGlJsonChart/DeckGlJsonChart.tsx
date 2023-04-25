@@ -15,11 +15,11 @@
  */
 
 import React, { PureComponent, ReactNode } from "react"
-import DeckGL from "deck.gl"
+import { DeckGL } from "deck.gl"
 import isEqual from "lodash/isEqual"
 import { MapContext, StaticMap, NavigationControl } from "react-map-gl"
 import { withTheme } from "@emotion/react"
-import { hasLightBackgroundColor, Theme } from "src/theme"
+import { hasLightBackgroundColor, EmotionTheme } from "src/theme"
 // We don't have Typescript defs for these imports, which makes ESLint unhappy
 /* eslint-disable import/no-extraneous-dependencies */
 import * as layers from "@deck.gl/layers"
@@ -71,13 +71,13 @@ const jsonConverter = new JSONConverter({ configuration })
 
 interface Props {
   width: number
-  theme: Theme
+  theme: EmotionTheme
   mapboxToken: string
   element: DeckGlJsonChartProto
 }
 
 export interface PropsWithHeight extends Props {
-  height: number | undefined
+  height?: number
 }
 
 interface State {
@@ -118,14 +118,14 @@ export class DeckGlJsonChart extends PureComponent<PropsWithHeight, State> {
     if (!isEqual(deck.initialViewState, state.initialViewState)) {
       const diff = Object.keys(deck.initialViewState).reduce(
         (diff, key): any => {
-          // @ts-ignore
+          // @ts-expect-error
           if (deck.initialViewState[key] === state.initialViewState[key]) {
             return diff
           }
 
           return {
             ...diff,
-            // @ts-ignore
+            // @ts-expect-error
             [key]: deck.initialViewState[key],
           }
         },

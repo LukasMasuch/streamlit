@@ -23,10 +23,13 @@ import {
   GridColumn,
 } from "@glideapps/glide-data-grid"
 import { toString, merge, isArray } from "lodash"
+import moment from "moment"
 import numbro from "numbro"
+import { logError } from "src/lib/log"
 
 import { Type as ArrowType } from "src/lib/Quiver"
 import { notNullOrUndefined, isNullOrUndefined } from "src/lib/utils"
+import { DatetimePickerCell } from "src/components/widgets/DataFrame/customCells/DatetimePickerCell"
 
 /**
  * Interface used for defining the properties (configuration options) of a column.
@@ -35,7 +38,9 @@ import { notNullOrUndefined, isNullOrUndefined } from "src/lib/utils"
 export interface BaseColumnProps {
   // The id of the column:
   readonly id: string
-  // The title of the column:
+  // The name of the column from the original data:
+  readonly name: string
+  // The display title of the column:
   readonly title: string
   // The index number of the column:
   readonly indexNumber: number
@@ -49,16 +54,22 @@ export interface BaseColumnProps {
   readonly isIndex: boolean
   // If `True`, the column is a stretched:
   readonly isStretched: boolean
+  // If `True`, a value is required before the cell or row can be submitted:
+  readonly isRequired?: boolean
   // The initial width of the column:
   readonly width?: number
   // Column type selected via column config:
   readonly customType?: string
   // Additional metadata related to the column type:
-  readonly columnTypeMetadata?: Record<string, any>
+  readonly columnTypeOptions?: Record<string, any>
   // The content alignment of the column:
   readonly contentAlignment?: "left" | "center" | "right"
+  // The default value of the column used when adding a new row:
+  readonly defaultValue?: string | number | boolean
   // Theme overrides for this column:
   readonly themeOverride?: Partial<GlideTheme>
+  // A custom icon to be displayed in the column header:
+  readonly icon?: string
 }
 
 /**
@@ -84,7 +95,12 @@ export interface BaseColumn extends BaseColumnProps {
 export type ColumnCreator = {
   (props: BaseColumnProps): BaseColumn
   readonly isEditableType: boolean
+  readonly dateType?: string
 }
+
+// See pydantic for inspiration: https://pydantic-docs.helpmanual.io/usage/types/#booleans
+const BOOLEAN_TRUE_VALUES = ["true", "t", "yes", "y", "on", "1"]
+const BOOLEAN_FALSE_VALUES = ["false", "f", "no", "n", "off", "0"]
 
 /**
  * Interface used for indicating if a cell contains an error.
@@ -180,6 +196,7 @@ export function toGlideColumn(column: BaseColumn): GridColumn {
     title: column.title,
     hasMenu: false,
     themeOverride: column.themeOverride,
+    icon: column.icon,
     ...(column.isStretched && {
       grow: column.isIndex ? 1 : 3,
     }),
@@ -295,12 +312,43 @@ export function toSafeString(data: any): string {
 }
 
 /**
+ * Converts the given value of unknown type to a boolean without
+ * the risks of any exceptions.
+ *
+ * @param value - The value to convert to a boolean.
+ *
+ * @return The converted boolean, null if the value is empty or undefined if the
+ *         value cannot be interpreted as a boolean.
+ */
+export function toSafeBoolean(value: any): boolean | null | undefined {
+  if (isNullOrUndefined(value)) {
+    return null
+  }
+
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  const cleanedValue = toSafeString(value).toLowerCase().trim()
+  if (cleanedValue === "") {
+    return null
+  } else if (BOOLEAN_TRUE_VALUES.includes(cleanedValue)) {
+    return true
+  } else if (BOOLEAN_FALSE_VALUES.includes(cleanedValue)) {
+    return false
+  }
+  // The value cannot be interpreted as boolean
+  return undefined
+}
+
+/**
  * Converts the given value of unknown type to a number without
  * the risks of any exceptions.
  *
  * @param value - The value to convert to a number.
  *
- * @returns The converted number or null if the value cannot be interpreted as a number.
+ * @returns The converted number or null if the value is empty or undefined or NaN if the
+ *          value cannot be interpreted as a number.
  */
 export function toSafeNumber(value: any): number | null {
   // TODO(lukasmasuch): Should this return null as replacement for NaN?
@@ -343,18 +391,187 @@ export function toSafeNumber(value: any): number | null {
  *
  * @param value - The number to format.
  * @param maxPrecision - The maximum number of decimals to show.
+ * @param keepTrailingZeros - Whether to keep trailing zeros.
  *
  * @returns The formatted number as a string.
  */
-export function formatNumber(value: number, maxPrecision = 4): string {
-  // TODO(lukasmasuch): Should we provide an option to keep the 0 suffixes?
-
+export function formatNumber(
+  value: number,
+  maxPrecision = 4,
+  keepTrailingZeros = false
+): string {
   if (!Number.isNaN(value) && Number.isFinite(value)) {
     if (maxPrecision === 0) {
-      // Numbro is unable to format the numb with 0 decimals.
+      // Numbro is unable to format the number with 0 decimals.
       value = Math.round(value)
     }
-    return numbro(value).format(`0,0.[${"0".repeat(maxPrecision)}]`)
+    return numbro(value).format(
+      keepTrailingZeros
+        ? `0,0.${"0".repeat(maxPrecision)}`
+        : `0,0.[${"0".repeat(maxPrecision)}]`
+    )
   }
   return ""
+}
+
+export function isValidDate(date: any): boolean {
+  try {
+    if (typeof date === "string") {
+      if (isStringButNumber(date)) {
+        return isDateNotNaN(new Date(Number(date)))
+      }
+      // attempt replacing spaces with a T because
+      // python datetime removes T
+      const modifiedDate = new Date(date.replace(" ", "T"))
+      return isDateNotNaN(modifiedDate) || isDateNotNaN(new Date(date))
+    }
+    return isDateNotNaN(new Date(date))
+  } catch (error) {
+    logError(error)
+    return false
+  }
+}
+
+export function isStringButNumber(val: any): boolean {
+  if (typeof val === "string" && !Number.isNaN(Number(val))) {
+    return true
+  }
+  return false
+}
+
+export function isDateNotNaN(date: Date): boolean {
+  return !Number.isNaN(date.getTime())
+}
+
+export function removeZeroMillisecondsInISOString(date: string): string {
+  return date.replace(".000", "")
+}
+
+export function removeTInString(date: string): string {
+  return date.replace("T", " ")
+}
+
+export function getDateCell(
+  props: BaseColumnProps,
+  data: any,
+  type: string
+): GridCell {
+  const defaultFormat = getDefaultFormatDateCell(type)
+
+  const parameters = {
+    ...(props.columnTypeMetadata || {}),
+  }
+
+  const cellTemplate = {
+    kind: GridCellKind.Custom,
+    allowOverlay: true,
+    copyData: "",
+    contentAlign: props.contentAlignment,
+    data: {
+      kind: "DatetimePickerCell",
+      date: undefined,
+      displayDate: "",
+      format: parameters.format ?? defaultFormat,
+      type,
+    },
+  } as DatetimePickerCell
+
+  if (isNullOrUndefined(data)) {
+    return {
+      ...cellTemplate,
+      allowOverlay: true,
+      // missing value
+      copyData: "",
+      isMissingValue: true,
+      data: {
+        kind: "DatetimePickerCell",
+        date: undefined,
+        displayDate: "",
+        format: cellTemplate.data.format,
+        type,
+      },
+    } as DatetimePickerCell
+  }
+
+  try {
+    // Python datetime uses microseconds, but JS & Moment uses milliseconds
+    if (typeof data === "bigint") {
+      data = Number(data) / 1000
+    }
+
+    if (!isValidDate(data)) {
+      return getErrorCell(`Incompatible Date value: ${data}`)
+    }
+
+    let dataDate: Date
+    if (isStringButNumber(data)) {
+      // 60000 => 60 minute / 1 second * 100 millisecond / 1 sec
+      dataDate = new Date(
+        Number(data) + new Date().getTimezoneOffset() * 60000
+      )
+    } else {
+      // safe to do new Date() because checked through isValidDate()
+      dataDate = new Date(data)
+    }
+
+    const copyData = getCopyDataForDate(dataDate, type)
+    const displayDate = removeTInString(
+      removeZeroMillisecondsInISOString(
+        moment.utc(dataDate).format(cellTemplate.data.format)
+      )
+    )
+    return {
+      ...cellTemplate,
+      allowOverlay: true,
+      copyData,
+      data: {
+        kind: "DatetimePickerCell",
+        date: dataDate,
+        displayDate,
+        format: cellTemplate.data.format,
+        type,
+      },
+    } as DatetimePickerCell
+  } catch (error) {
+    return getErrorCell(`Incompatible date value: ${data}`)
+  }
+}
+
+export function getDefaultFormatDateCell(type: string): string {
+  switch (type) {
+    case "date":
+      return "YYYY / MM / DD"
+    case "datetime-local":
+      return "YYYY-MM-DDTHH:mm:ss.SSS"
+    case "time":
+      return "HH:mm:ss.SSS"
+    default:
+      return ""
+  }
+}
+
+export function getDateCellContent(cell: DatetimePickerCell): string | null {
+  return !notNullOrUndefined(cell.data.date)
+    ? null
+    : cell.data.date.toISOString()
+}
+
+export function getCopyDataForDate(date: Date, type: string): string {
+  switch (type) {
+    case "time": {
+      // datetime.time is only hours, minutes, etc
+      const withoutYearAndMonth =
+        (date.getHours() * 60 * 60 +
+          date.getMinutes() * 60 +
+          date.getSeconds()) *
+          1000 +
+        date.getMilliseconds()
+      return toSafeString(withoutYearAndMonth)
+    }
+    case "datetime-local":
+    case "date":
+      return date.toISOString()
+    default:
+      return ""
+  }
 }

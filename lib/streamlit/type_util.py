@@ -19,6 +19,7 @@ from __future__ import annotations
 import contextlib
 import re
 import types
+from datetime import date, datetime, time
 from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,
@@ -40,7 +41,6 @@ from typing import (
 import numpy as np
 import pyarrow as pa
 from pandas import DataFrame, Index, MultiIndex, Series
-from pandas import __version__ as pandas_version
 from pandas.api.types import infer_dtype, is_dict_like, is_list_like
 from typing_extensions import Final, Literal, Protocol, TypeAlias, TypeGuard, get_args
 
@@ -138,10 +138,10 @@ Key: TypeAlias = Union[str, int]
 
 LabelVisibility = Literal["visible", "hidden", "collapsed"]
 
-# This should really be a Protocol, but can't be, due to:
-# https://github.com/python/mypy/issues/12933
-# https://github.com/python/mypy/issues/13081
-SupportsStr: TypeAlias = object
+
+class SupportsStr(Protocol):
+    def __str__(self) -> str:
+        ...
 
 
 def is_array_value_field_name(obj: object) -> TypeGuard[ArrayValueFieldName]:
@@ -450,7 +450,7 @@ def is_namedtuple(x: object) -> TypeGuard[NamedTuple]:
     return all(type(n).__name__ == "str" for n in f)
 
 
-def is_pandas_styler(obj: object) -> TypeGuard[Styler]:
+def is_pandas_styler(obj: object) -> TypeGuard["Styler"]:
     return is_type(obj, _PANDAS_STYLER_TYPE_STR)
 
 
@@ -489,7 +489,7 @@ def convert_anything_to_df(
 
     Parameters
     ----------
-    df : ndarray, Iterable, dict, DataFrame, Styler, pa.Table, None, dict, list, or any
+    data : ndarray, Iterable, dict, DataFrame, Styler, pa.Table, None, dict, list, or any
 
     max_unevaluated_rows: int
         If unevaluated data is detected this func will evaluate it,
@@ -540,7 +540,6 @@ def convert_anything_to_df(
     # Try to convert to pandas.DataFrame. This will raise an error is df is not
     # compatible with the pandas.DataFrame constructor.
     try:
-
         return DataFrame(data)
 
     except ValueError as ex:
@@ -551,7 +550,6 @@ def convert_anything_to_df(
         raise errors.StreamlitAPIException(
             f"""
 Unable to convert object of type `{type(data)}` to `pandas.DataFrame`.
-
 Offending object:
 ```py
 {data}
@@ -628,9 +626,10 @@ def is_pandas_version_less_than(v: str) -> bool:
     bool
 
     """
+    import pandas as pd
     from packaging import version
 
-    return version.parse(pandas_version) < version.parse(v)
+    return version.parse(pd.__version__) < version.parse(v)
 
 
 def pyarrow_table_to_bytes(table: pa.Table) -> bytes:
@@ -651,13 +650,11 @@ def pyarrow_table_to_bytes(table: pa.Table) -> bytes:
 
 def is_colum_type_arrow_incompatible(column: Union[Series, Index]) -> bool:
     """Return True if the column type is known to cause issues during Arrow conversion."""
-    if column.dtype in [
-        # timedelta64[ns] is supported by pyarrow but not in the Arrow JS:
+    if column.dtype.kind in [
+        # timedelta is supported by pyarrow but not in the Arrow JS:
         # https://github.com/streamlit/streamlit/issues/4489
-        "timedelta64[ns]",
-        "complex64",
-        "complex128",
-        "complex256",
+        "m",  # timedelta64[ns]
+        "c",  # complex64, complex128, complex256
     ]:
         return True
 
@@ -669,10 +666,6 @@ def is_colum_type_arrow_incompatible(column: Union[Series, Index]) -> bool:
 
         if inferred_type in [
             "mixed-integer",
-            # Decimal is not correctly supported on Arrow JS:
-            # https://github.com/apache/arrow/issues/22932
-            # https://github.com/apache/arrow/issues/28804
-            "decimal",
             "complex",
             "timedelta",
             "timedelta64",
@@ -680,18 +673,26 @@ def is_colum_type_arrow_incompatible(column: Union[Series, Index]) -> bool:
             return True
         elif inferred_type == "mixed":
             # This includes most of the more complex/custom types (objects, dicts, lists, ...)
+            if len(column) == 0 or not hasattr(column, "iloc"):
+                # The column seems to be invalid, so we assume it is incompatible.
+                # But this would most likely never happen since empty columns
+                # cannot be mixed.
+                return True
+
+            # Get the first value to check if it is a supported list-like type.
+            first_value = column.iloc[0]
+
             if (
-                len(column) > 0
-                and hasattr(column, "iloc")
-                and is_list_like(column.iloc[0])
+                not is_list_like(first_value)
                 # dicts are list-like, but have issues in Arrow JS (see comments in Quiver.ts)
-                and not is_dict_like(column.iloc[0])
+                or is_dict_like(first_value)
                 # Frozensets are list-like, but are not compatible with pyarrow.
-                and not isinstance(column.iloc[0], frozenset)
+                or isinstance(first_value, frozenset)
             ):
-                # Lists-like structures are supported
-                return False
-            return True
+                # This seems to be an incompatible list-like type
+                return True
+            return False
+    # We did not detect an incompatible type, so we assume it is compatible:
     return False
 
 
@@ -756,8 +757,9 @@ def data_frame_to_bytes(df: DataFrame) -> bytes:
         table = pa.Table.from_pandas(df)
     except (pa.ArrowTypeError, pa.ArrowInvalid, pa.ArrowNotImplementedError) as ex:
         _LOGGER.info(
+            "Serialization of dataframe to Arrow table was unsuccessful due to: %s. "
             "Applying automatic fixes for column types to make the dataframe Arrow-compatible.",
-            exc_info=ex,
+            ex,
         )
         df = fix_arrow_incompatible_column_types(df)
         table = pa.Table.from_pandas(df)
@@ -847,13 +849,24 @@ def determine_data_format(input_data: Any) -> DataFormat:
     return DataFormat.UNKNOWN
 
 
+def _unify_missing_values(df: DataFrame) -> DataFrame:
+    """Unify all missing values in a DataFrame to None.
+
+    Pandas uses a variety of values to represent missing values, including np.nan,
+    NaT, None, and pd.NA. This function replaces all of these values with None,
+    which is the only missing value type that is supported by all data
+    """
+
+    return df.fillna(np.nan).replace([np.nan], [None])
+
+
 def convert_df_to_data_format(
     df: DataFrame, data_format: DataFormat
 ) -> Union[
     DataFrame,
     Series,
     Index,
-    Styler,
+    "Styler",
     pa.Table,
     np.ndarray[Any, np.dtype[Any]],
     Tuple[Any],
@@ -890,9 +903,9 @@ def convert_df_to_data_format(
         # the first column as numpy array
         # Calling to_numpy() on the full DataFrame would result in:
         # [[1], [2]] instead of [1, 2]
-        return np.ndarray([]) if df.empty else df.iloc[:, 0].to_numpy()
+        return np.ndarray(0) if df.empty else df.iloc[:, 0].to_numpy()
     elif data_format == DataFormat.NUMPY_MATRIX:
-        return df.to_numpy()
+        return np.ndarray(0) if df.empty else df.to_numpy()
     elif data_format == DataFormat.PYARROW_TABLE:
         return pa.Table.from_pandas(df)
     elif data_format == DataFormat.PANDAS_SERIES:
@@ -903,14 +916,14 @@ def convert_df_to_data_format(
             )
         return df[df.columns[0]]
     elif data_format == DataFormat.LIST_OF_RECORDS:
-        return df.to_dict(orient="records")
+        return _unify_missing_values(df).to_dict(orient="records")
     elif data_format == DataFormat.LIST_OF_ROWS:
         # to_numpy converts the dataframe to a list of rows
-        return df.to_numpy().tolist()
+        return _unify_missing_values(df).to_numpy().tolist()
     elif data_format == DataFormat.COLUMN_INDEX_MAPPING:
-        return df.to_dict(orient="dict")
+        return _unify_missing_values(df).to_dict(orient="dict")
     elif data_format == DataFormat.COLUMN_VALUE_MAPPING:
-        return df.to_dict(orient="list")
+        return _unify_missing_values(df).to_dict(orient="list")
     elif data_format == DataFormat.COLUMN_SERIES_MAPPING:
         return df.to_dict(orient="series")
     elif data_format in [
@@ -918,6 +931,7 @@ def convert_df_to_data_format(
         DataFormat.TUPLE_OF_VALUES,
         DataFormat.SET_OF_VALUES,
     ]:
+        df = _unify_missing_values(df)
         return_list = []
         if len(df.columns) == 1:
             #  Get the first column and convert to list
@@ -932,6 +946,7 @@ def convert_df_to_data_format(
             return set(return_list)
         return return_list
     elif data_format == DataFormat.KEY_VALUE_DICT:
+        df = _unify_missing_values(df)
         # The key is expected to be the index -> this will return the first column
         # as a dict with index as key.
         return dict() if df.empty else df.iloc[:, 0].to_dict()
@@ -969,3 +984,49 @@ def maybe_raise_label_warnings(label: Optional[str], label_visibility: Optional[
             f"Unsupported label_visibility option '{label_visibility}'. "
             f"Valid values are 'visible', 'hidden' or 'collapsed'."
         )
+
+
+def can_be_float_or_int(value: str | int | float) -> bool:
+    if isinstance(value, (int, float)):
+        return True
+    if value.isdigit():
+        return True
+    elif value.replace(".", "", 1).isdigit() and value.count(".") < 2:
+        return True
+    else:
+        return False
+
+
+def maybe_convert_datetime_date_edit_df(value: Union[str, int, float]) -> date | None:
+    converted_datetime = maybe_convert_datetime_datetime_edit_df(value)
+    if converted_datetime is None:
+        return None
+    else:
+        return converted_datetime.date()
+
+
+def maybe_convert_datetime_time_edit_df(value: Union[str, int, float]) -> time | None:
+    converted_datetime = maybe_convert_datetime_datetime_edit_df(value)
+    if converted_datetime is None:
+        return None
+    else:
+        return converted_datetime.time()
+
+
+def maybe_convert_datetime_datetime_edit_df(value) -> datetime | None:
+    try:
+        import dateutil.parser
+        from dateutil.tz import tzutc
+
+        # handle pasting as the input is a string type but actually a number
+        if isinstance(value, str) and not can_be_float_or_int(value):
+            date_converted = dateutil.parser.isoparse(value).astimezone(tz=tzutc())
+        elif can_be_float_or_int(value) or isinstance(value, (int, float)):
+            # Python datetime uses microseconds, but JS & Moment uses milliseconds
+            date_converted = datetime.fromtimestamp(float(value) / 1000).astimezone(
+                tz=tzutc()
+            )
+        return date_converted
+    except Exception as e:
+        _LOGGER.info(f"Failed to convert the edited cell to datetime. Exception: {e}")
+    return None

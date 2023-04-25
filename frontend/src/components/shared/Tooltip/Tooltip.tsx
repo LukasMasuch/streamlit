@@ -16,7 +16,7 @@
 
 import React, { ReactElement, ReactNode } from "react"
 import { useTheme } from "@emotion/react"
-import { Theme, hasLightBackgroundColor } from "src/theme"
+import { EmotionTheme, hasLightBackgroundColor } from "src/theme"
 import { StatefulTooltip, ACCESSIBILITY_TYPE, PLACEMENT } from "baseui/tooltip"
 import { StyledTooltipContentWrapper } from "./styled-components"
 
@@ -51,14 +51,16 @@ function Tooltip({
   inline,
   style,
 }: TooltipProps): ReactElement {
-  const theme: Theme = useTheme()
+  const theme: EmotionTheme = useTheme()
   const { colors, fontSizes, radii } = theme
 
   return (
     <StatefulTooltip
       content={
         content ? (
-          <StyledTooltipContentWrapper>{content}</StyledTooltipContentWrapper>
+          <StyledTooltipContentWrapper className="stTooltipContent">
+            {content}
+          </StyledTooltipContentWrapper>
         ) : null
       }
       placement={PLACEMENT[placement]}

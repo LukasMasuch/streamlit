@@ -28,8 +28,8 @@ import Webcam from "react-webcam"
 import { debounce } from "src/lib/utils"
 
 import Icon from "src/components/shared/Icon"
-import { Theme } from "src/theme"
-import themeColors from "src/theme/baseTheme/themeColors"
+import { EmotionTheme } from "src/theme"
+import themeColors from "src/theme/emotionBaseTheme/themeColors"
 import { CAMERA_PERMISSION_URL } from "src/urls"
 
 import CameraInputButton from "./CameraInputButton"
@@ -97,13 +97,13 @@ const WebcamComponent = ({
 
   const [debouncedWidth, setDebouncedWidth] = useState(width)
   const memoizedSetDebouncedCallback = useCallback(
-    debounce(1000, setDebouncedWidth),
+    (width: number) => debounce(1000, setDebouncedWidth(width)),
     []
   )
 
   useEffect(() => {
     memoizedSetDebouncedCallback(width)
-  }, [width])
+  }, [width, memoizedSetDebouncedCallback])
 
   function capture(): void {
     if (videoRef.current !== null) {
@@ -112,7 +112,7 @@ const WebcamComponent = ({
     }
   }
 
-  const theme: Theme = useTheme()
+  const theme: EmotionTheme = useTheme()
 
   return (
     <StyledCameraInput width={debouncedWidth}>

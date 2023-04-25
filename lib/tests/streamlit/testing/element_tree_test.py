@@ -12,15 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime, time
-from unittest.mock import patch
+from datetime import date, datetime, time
 
 import pytest
 
-from tests.script_interactions import InteractiveScriptTests
+from streamlit.elements.markdown import MARKDOWN_HORIZONTAL_RULE_EXPRESSION
+from streamlit.testing.script_interactions import InteractiveScriptTests
 
 
-@patch("streamlit.source_util._cached_pages", new=None)
+@pytest.mark.xfail(reason="button does not work correctly with session state")
+class ButtonTest(InteractiveScriptTests):
+    def test_value(self):
+        script = self.script_from_string(
+            "button_test.py",
+            """
+            import streamlit as st
+
+            st.button("button")
+            st.button("second button")
+            """,
+        )
+        sr = script.run()
+        assert sr.get("button")[0].value == False
+        assert sr.get("button")[1].value == False
+
+        sr2 = sr.get("button")[0].click().run()
+        assert sr2.get("button")[0].value == True
+        assert sr2.get("button")[1].value == False
+
+        sr3 = sr2.run()
+        assert sr3.get("button")[0].value == False
+        assert sr3.get("button")[1].value == False
+
+
 class CheckboxTest(InteractiveScriptTests):
     def test_value(self):
         script = self.script_from_string(
@@ -46,62 +70,171 @@ class CheckboxTest(InteractiveScriptTests):
         assert sr3.get("checkbox")[1].value == False
 
 
-@pytest.mark.xfail(reason="button does not work correctly with session state")
-@patch("streamlit.source_util._cached_pages", new=None)
-class ButtonTest(InteractiveScriptTests):
+class ColorPickerTest(InteractiveScriptTests):
     def test_value(self):
         script = self.script_from_string(
-            "button_test.py",
+            "color_picker.py",
             """
             import streamlit as st
 
-            st.button("button")
-            st.button("second button")
+            st.color_picker("what is your favorite color?")
+            st.color_picker("short hex", value="#ABC")
+            st.color_picker("invalid", value="blue")
             """,
         )
         sr = script.run()
-        assert sr.get("button")[0].value == False
-        assert sr.get("button")[1].value == False
+        assert len(sr.get("color_picker")) == 2
+        assert [c.value for c in sr.get("color_picker")] == ["#000000", "#ABC"]
+        assert "blue" in sr.get("exception")[0].value
 
-        sr2 = sr.get("button")[0].click().run()
-        assert sr2.get("button")[0].value == True
-        assert sr2.get("button")[1].value == False
-
-        sr3 = sr2.run()
-        assert sr3.get("button")[0].value == False
-        assert sr3.get("button")[1].value == False
+        sr2 = sr.get("color_picker")[0].pick("#123456").run()
+        assert sr2.get("color_picker")[0].value == "#123456"
 
 
-@patch("streamlit.source_util._cached_pages", new=None)
-class MultiselectTest(InteractiveScriptTests):
+class DateInputTest(InteractiveScriptTests):
     def test_value(self):
         script = self.script_from_string(
-            "multiselect_test.py",
+            "date_input.py",
+            """
+            import streamlit as st
+            import datetime
+
+            st.date_input("date", value=datetime.date(2023, 4, 17))
+            st.date_input("datetime", value=datetime.datetime(2023, 4, 17, 11))
+            st.date_input("range", value=(datetime.date(2020, 1, 1), datetime.date(2030, 1, 1)))
+            """,
+        )
+        sr = script.run()
+        assert not sr.get("exception")
+        assert [d.value for d in sr.get("date_input")] == [
+            date(2023, 4, 17),
+            datetime(2023, 4, 17).date(),
+            (date(2020, 1, 1), date(2030, 1, 1)),
+        ]
+        ds = sr.get("date_input")
+        ds[0].set_value(date(2023, 5, 1))
+        ds[1].set_value(datetime(2023, 1, 1))
+        ds[2].set_value((date(2023, 1, 1), date(2024, 1, 1)))
+
+        sr2 = sr.run()
+        assert [d.value for d in sr2.get("date_input")] == [
+            date(2023, 5, 1),
+            date(2023, 1, 1),
+            (date(2023, 1, 1), date(2024, 1, 1)),
+        ]
+
+
+class ExceptionTest(InteractiveScriptTests):
+    def test_value(self):
+        script = self.script_from_string(
+            "exception.py",
             """
             import streamlit as st
 
-            st.multiselect("one", options=["a", "b", "c"])
-            st.multiselect("two", options=["zero", "one", "two"], default=["two"])
+            st.exception(RuntimeError("foo"))
             """,
         )
         sr = script.run()
-        assert sr.get("multiselect")[0].value == []
-        assert sr.get("multiselect")[1].value == ["two"]
 
-        sr2 = sr.get("multiselect")[0].select("b").run()
-        assert sr2.get("multiselect")[0].value == ["b"]
-        assert sr2.get("multiselect")[1].value == ["two"]
+        assert sr.get("exception")[0].value == "foo"
 
-        sr3 = sr2.get("multiselect")[1].select("zero").select("one").run()
-        assert sr3.get("multiselect")[0].value == ["b"]
-        assert set(sr3.get("multiselect")[1].value) == set(["zero", "one", "two"])
+    def test_markdown(self):
+        script = self.script_from_string(
+            "exception2.py",
+            """
+            import streamlit as st
 
-        sr4 = sr3.get("multiselect")[0].unselect("b").run()
-        assert sr4.get("multiselect")[0].value == []
-        assert set(sr3.get("multiselect")[1].value) == set(["zero", "one", "two"])
+            st.exception(st.errors.MarkdownFormattedException("# Oh no"))
+            """,
+        )
+        sr = script.run()
+
+        assert sr.get("exception")[0].is_markdown
 
 
-@patch("streamlit.source_util._cached_pages", new=None)
+class HeadingTest(InteractiveScriptTests):
+    def test_title(self):
+        script = self.script_from_string(
+            "title_element.py",
+            """
+            import streamlit as st
+
+            st.title("This is a title")
+            st.title("This is a title with anchor", anchor="anchor text")
+            st.title("This is a title with hidden anchor", anchor=False)
+            """,
+        )
+        sr = script.run()
+
+        assert len(sr.get("title")) == 3
+        assert sr.get("title")[1].tag == "h1"
+        assert sr.get("title")[1].anchor == "anchor text"
+        assert sr.get("title")[1].value == "This is a title with anchor"
+        assert sr.get("title")[2].hide_anchor
+
+    def test_header(self):
+        script = self.script_from_string(
+            "header_element.py",
+            """
+            import streamlit as st
+
+            st.header("This is a header")
+            st.header("This is a header with anchor", anchor="header anchor text")
+            st.header("This is a header with hidden anchor", anchor=False)
+            """,
+        )
+        sr = script.run()
+
+        assert len(sr.get("header")) == 3
+        assert sr.get("header")[1].tag == "h2"
+        assert sr.get("header")[1].anchor == "header anchor text"
+        assert sr.get("header")[1].value == "This is a header with anchor"
+        assert sr.get("header")[2].hide_anchor
+
+    def test_subheader(self):
+        script = self.script_from_string(
+            "subheader_element.py",
+            """
+            import streamlit as st
+
+            st.subheader("This is a subheader")
+            st.subheader(
+                "This is a subheader with anchor",
+                anchor="subheader anchor text"
+            )
+            st.subheader("This is a subheader with hidden anchor", anchor=False)
+            """,
+        )
+        sr = script.run()
+
+        assert len(sr.get("subheader")) == 3
+        assert sr.get("subheader")[1].tag == "h3"
+        assert sr.get("subheader")[1].anchor == "subheader anchor text"
+        assert sr.get("subheader")[1].value == "This is a subheader with anchor"
+        assert sr.get("subheader")[2].hide_anchor
+
+    def test_heading_elements_by_type(self):
+        script = self.script_from_string(
+            "heading_elements.py",
+            """
+            import streamlit as st
+
+            st.title("title1")
+            st.header("header1")
+            st.subheader("subheader1")
+
+            st.title("title2")
+            st.header("header2")
+            st.subheader("subheader2")
+            """,
+        )
+        sr = script.run()
+
+        assert len(sr.get("title")) == 2
+        assert len(sr.get("header")) == 2
+        assert len(sr.get("subheader")) == 2
+
+
 class MarkdownTest(InteractiveScriptTests):
     def test_markdown(self):
         script = self.script_from_string(
@@ -147,7 +280,7 @@ class MarkdownTest(InteractiveScriptTests):
 
         assert sr.get("code")
         assert sr.get("code")[0].type == "code"
-        assert sr.get("code")[0].value == "```python\nimport streamlit as st\n```"
+        assert sr.get("code")[0].value == "import streamlit as st"
 
     def test_latex(self):
         script = self.script_from_string(
@@ -163,6 +296,21 @@ class MarkdownTest(InteractiveScriptTests):
         assert sr.get("latex")
         assert sr.get("latex")[0].type == "latex"
         assert sr.get("latex")[0].value == "$$\nE=mc^2\n$$"
+
+    def test_divider(self):
+        script = self.script_from_string(
+            "divider_element.py",
+            """
+            import streamlit as st
+
+            st.divider()
+            """,
+        )
+        sr = script.run()
+
+        assert sr.get("divider")
+        assert sr.get("divider")[0].type == "divider"
+        assert sr.get("divider")[0].value == MARKDOWN_HORIZONTAL_RULE_EXPRESSION
 
     def test_markdown_elements_by_type(self):
         script = self.script_from_string(
@@ -189,144 +337,83 @@ class MarkdownTest(InteractiveScriptTests):
         assert len(sr.get("latex")) == 2
 
 
-@patch("streamlit.source_util._cached_pages", new=None)
-class HeadingTest(InteractiveScriptTests):
-    def test_title(self):
-        script = self.script_from_string(
-            "title_element.py",
-            """
-            import streamlit as st
-
-            st.title("This is a title")
-            st.title("This is a title with anchor", anchor="anchor text")
-            """,
-        )
-        sr = script.run()
-
-        assert len(sr.get("title")) == 2
-        assert sr.get("title")[1].tag == "h1"
-        assert sr.get("title")[1].anchor == "anchor text"
-        assert sr.get("title")[1].value == "This is a title with anchor"
-
-    def test_header(self):
-        script = self.script_from_string(
-            "header_element.py",
-            """
-            import streamlit as st
-
-            st.header("This is a header")
-            st.header("This is a header with anchor", anchor="header anchor text")
-            """,
-        )
-        sr = script.run()
-
-        assert len(sr.get("header")) == 2
-        assert sr.get("header")[1].tag == "h2"
-        assert sr.get("header")[1].anchor == "header anchor text"
-        assert sr.get("header")[1].value == "This is a header with anchor"
-
-    def test_subheader(self):
-        script = self.script_from_string(
-            "subheader_element.py",
-            """
-            import streamlit as st
-
-            st.subheader("This is a subheader")
-            st.subheader(
-                "This is a subheader with anchor",
-                anchor="subheader anchor text"
-            )
-            """,
-        )
-        sr = script.run()
-
-        assert len(sr.get("subheader")) == 2
-        assert sr.get("subheader")[1].tag == "h3"
-        assert sr.get("subheader")[1].anchor == "subheader anchor text"
-        assert sr.get("subheader")[1].value == "This is a subheader with anchor"
-
-    def test_heading_elements_by_type(self):
-        script = self.script_from_string(
-            "heading_elements.py",
-            """
-            import streamlit as st
-
-            st.title("title1")
-            st.header("header1")
-            st.subheader("subheader1")
-
-            st.title("title2")
-            st.header("header2")
-            st.subheader("subheader2")
-            """,
-        )
-        sr = script.run()
-
-        assert len(sr.get("title")) == 2
-        assert len(sr.get("header")) == 2
-        assert len(sr.get("subheader")) == 2
-
-
-@patch("streamlit.source_util._cached_pages", new=None)
-class SliderTest(InteractiveScriptTests):
+class MultiselectTest(InteractiveScriptTests):
     def test_value(self):
         script = self.script_from_string(
-            "slider_test.py",
+            "multiselect_test.py",
             """
             import streamlit as st
-            from datetime import datetime, time
 
-            st.slider("defaults")
-            st.slider("int", min_value=-100, max_value=100, step=5, value=10)
-            st.slider("time", value=(time(11, 30), time(12, 45)))
-            st.slider("datetime", value=datetime(2020, 1, 1, 9, 30))
-            st.slider("float", min_value=0.0, max_value=1.0, step=0.01)
+            st.multiselect("one", options=["a", "b", "c"])
+            st.multiselect("two", options=["zero", "one", "two"], default=["two"])
             """,
         )
         sr = script.run()
-        s = sr.get("slider")
-        assert s[0].value == 0
-        assert s[1].value == 10
-        assert s[2].value == (time(11, 30), time(12, 45))
-        assert s[3].value == datetime(2020, 1, 1, 9, 30)
-        assert s[4].value == 0.0
+        assert sr.get("multiselect")[0].value == []
+        assert sr.get("multiselect")[1].value == ["two"]
 
-        sr2 = sr.get("slider")[1].set_value(50).run()
-        sr3 = sr2.get("slider")[2].set_range(time(12, 0), time(12, 15)).run()
-        sr4 = sr3.get("slider")[3].set_value(datetime(2020, 1, 10, 8, 0)).run()
-        sr5 = sr4.get("slider")[4].set_value(0.1).run()
-        s = sr5.get("slider")
-        assert s[0].value == 0
-        assert s[1].value == 50
-        assert s[2].value == (time(12, 0), time(12, 15))
-        assert s[3].value == datetime(2020, 1, 10, 8, 0)
-        assert s[4].value == 0.1
+        sr2 = sr.get("multiselect")[0].select("b").run()
+        assert sr2.get("multiselect")[0].value == ["b"]
+        assert sr2.get("multiselect")[1].value == ["two"]
+
+        sr3 = sr2.get("multiselect")[1].select("zero").select("one").run()
+        assert sr3.get("multiselect")[0].value == ["b"]
+        assert set(sr3.get("multiselect")[1].value) == set(["zero", "one", "two"])
+
+        sr4 = sr3.get("multiselect")[0].unselect("b").run()
+        assert sr4.get("multiselect")[0].value == []
+        assert set(sr3.get("multiselect")[1].value) == set(["zero", "one", "two"])
 
 
-@patch("streamlit.source_util._cached_pages", new=None)
-class SelectSliderTest(InteractiveScriptTests):
+class NumberInputTest(InteractiveScriptTests):
     def test_value(self):
         script = self.script_from_string(
-            "select_slider_test.py",
+            "number_input.py",
             """
             import streamlit as st
 
-            options=['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet']
-            st.select_slider("single", options=options, value='green')
-            st.select_slider("range", options=options, value=['red', 'blue'])
+            st.number_input("int", min_value=-10, max_value=10)
+            st.number_input("float", min_value=-1.0, max_value=100.0)
             """,
         )
         sr = script.run()
-        assert sr.get("select_slider")[0].value == "green"
-        assert sr.get("select_slider")[1].value == ("red", "blue")
+        assert sr.get("number_input")[0].value == -10
+        assert sr.get("number_input")[1].value == -1.0
 
-        sr2 = sr.get("select_slider")[0].set_value("violet").run()
-        sr3 = sr2.get("select_slider")[1].set_range("yellow", "orange").run()
-        assert sr3.get("select_slider")[0].value == "violet"
-        assert sr3.get("select_slider")[1].value == ("orange", "yellow")
+        sr2 = (
+            sr.get("number_input")[0]
+            .increment()
+            .run()
+            .get("number_input")[1]
+            .increment()
+            .run()
+        )
+        assert sr2.get("number_input")[0].value == -9
+        assert sr2.get("number_input")[1].value == -0.99
+
+        sr3 = (
+            sr2.get("number_input")[0]
+            .decrement()
+            .run()
+            .get("number_input")[1]
+            .decrement()
+            .run()
+        )
+        assert sr3.get("number_input")[0].value == -10
+        assert sr3.get("number_input")[1].value == -1.0
+
+        sr4 = (
+            sr3.get("number_input")[0]
+            .decrement()
+            .run()
+            .get("number_input")[1]
+            .decrement()
+            .run()
+        )
+        assert sr4.get("number_input")[0].value == -10
+        assert sr4.get("number_input")[1].value == -1.0
 
 
-@patch("streamlit.source_util._cached_pages", new=None)
 class SelectboxTest(InteractiveScriptTests):
     def test_value(self):
         script = self.script_from_string(
@@ -370,3 +457,141 @@ class SelectboxTest(InteractiveScriptTests):
 
         with pytest.raises(IndexError):
             sr6.get("selectbox")[0].select_index(42).run()
+
+
+class SelectSliderTest(InteractiveScriptTests):
+    def test_value(self):
+        script = self.script_from_string(
+            "select_slider_test.py",
+            """
+            import streamlit as st
+
+            options=['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet']
+            st.select_slider("single", options=options, value='green')
+            st.select_slider("range", options=options, value=['red', 'blue'])
+            """,
+        )
+        sr = script.run()
+        assert sr.get("select_slider")[0].value == "green"
+        assert sr.get("select_slider")[1].value == ("red", "blue")
+
+        sr2 = sr.get("select_slider")[0].set_value("violet").run()
+        sr3 = sr2.get("select_slider")[1].set_range("yellow", "orange").run()
+        assert sr3.get("select_slider")[0].value == "violet"
+        assert sr3.get("select_slider")[1].value == ("orange", "yellow")
+
+
+class SliderTest(InteractiveScriptTests):
+    def test_value(self):
+        script = self.script_from_string(
+            "slider_test.py",
+            """
+            import streamlit as st
+            from datetime import datetime, time
+
+            st.slider("defaults")
+            st.slider("int", min_value=-100, max_value=100, step=5, value=10)
+            st.slider("time", value=(time(11, 30), time(12, 45)))
+            st.slider("datetime", value=datetime(2020, 1, 1, 9, 30))
+            st.slider("float", min_value=0.0, max_value=1.0, step=0.01)
+            """,
+        )
+        sr = script.run()
+        s = sr.get("slider")
+        assert s[0].value == 0
+        assert s[1].value == 10
+        assert s[2].value == (time(11, 30), time(12, 45))
+        assert s[3].value == datetime(2020, 1, 1, 9, 30)
+        assert s[4].value == 0.0
+
+        sr2 = sr.get("slider")[1].set_value(50).run()
+        sr3 = sr2.get("slider")[2].set_range(time(12, 0), time(12, 15)).run()
+        sr4 = sr3.get("slider")[3].set_value(datetime(2020, 1, 10, 8, 0)).run()
+        sr5 = sr4.get("slider")[4].set_value(0.1).run()
+        s = sr5.get("slider")
+        assert s[0].value == 0
+        assert s[1].value == 50
+        assert s[2].value == (time(12, 0), time(12, 15))
+        assert s[3].value == datetime(2020, 1, 10, 8, 0)
+        assert s[4].value == 0.1
+
+
+class TextAreaTest(InteractiveScriptTests):
+    def test_value(self):
+        script = self.script_from_string(
+            "text_area.py",
+            """
+            import streamlit as st
+
+            st.text_area("label")
+            st.text_area("with default", value="default", max_chars=20)
+            """,
+        )
+        sr = script.run()
+
+        assert sr.get("text_area")[0].value == ""
+        assert sr.get("text_area")[1].value == "default"
+
+        long_string = "".join(["this is a long string fragment."] * 10)
+        sr.get("text_area")[0].input(long_string)
+        sr2 = sr.get("text_area")[1].input(long_string).run()
+
+        assert sr2.get("text_area")[0].value == long_string
+        assert sr2.get("text_area")[1].value == "default"
+
+
+class TextInputTest(InteractiveScriptTests):
+    def test_value(self):
+        script = self.script_from_string(
+            "text_input.py",
+            """
+            import streamlit as st
+
+            st.text_input("label")
+            st.text_input("with default", value="default", max_chars=20)
+            """,
+        )
+        sr = script.run()
+
+        assert sr.get("text_input")[0].value == ""
+        assert sr.get("text_input")[1].value == "default"
+
+        long_string = "".join(["this is a long string fragment."] * 10)
+        sr.get("text_input")[0].input(long_string)
+        sr2 = sr.get("text_input")[1].input(long_string).run()
+
+        assert sr2.get("text_input")[0].value == long_string
+        assert sr2.get("text_input")[1].value == "default"
+        # assert sr2.get("text_input")[1].value == long_string[:20]
+
+
+class TimeInputTest(InteractiveScriptTests):
+    def test_value(self):
+        script = self.script_from_string(
+            "time_input.py",
+            """
+            import streamlit as st
+            import datetime
+
+            st.time_input("time", value=datetime.time(8, 30))
+            st.time_input("datetime", value=datetime.datetime(2000,1,1, hour=17), step=3600)
+            st.time_input("timedelta step", value=datetime.time(2), step=datetime.timedelta(minutes=1))
+            """,
+        )
+        sr = script.run()
+        assert not sr.get("exception")
+        assert [t.value for t in sr.get("time_input")] == [
+            time(8, 30),
+            time(17),
+            time(2),
+        ]
+        tis = sr.get("time_input")
+        tis[0].increment()
+        tis[1].decrement()
+        tis[2].increment()
+        sr2 = sr.run()
+        assert [t.value for t in sr2.get("time_input")] == [
+            time(8, 45),
+            time(16),
+            time(2, 1),
+        ]

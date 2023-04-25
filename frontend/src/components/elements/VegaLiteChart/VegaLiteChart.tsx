@@ -26,7 +26,7 @@ import {
   tableGet,
 } from "src/lib/dataFrameProto"
 import { ensureError } from "src/lib/ErrorHandling"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
 import embed from "vega-embed"
 import * as vega from "vega"
 import { expressionInterpreter } from "vega-interpreter"
@@ -62,11 +62,11 @@ const SUPPORTED_INDEX_TYPES = new Set([
 interface Props {
   width: number
   element: ImmutableMap<string, any>
-  theme: Theme
+  theme: EmotionTheme
 }
 
 export interface PropsWithHeight extends Props {
-  height: number | undefined
+  height?: number
 }
 
 interface State {
@@ -380,7 +380,7 @@ function getDataSets(
 
   const datasets: { [dataset: string]: any } = {}
 
-  el.get("datasets").forEach((x: any, i: number) => {
+  el.get("datasets").forEach((x: any) => {
     if (!x) {
       return
     }
@@ -482,7 +482,7 @@ export function dataIsAnAppendOfPrev(
   return true
 }
 
-function configWithThemeDefaults(config: any, theme: Theme): any {
+function configWithThemeDefaults(config: any, theme: EmotionTheme): any {
   const { colors, fontSizes, genericFonts } = theme
   const themeFonts = {
     labelFont: genericFonts.bodyFont,

@@ -23,7 +23,8 @@ import React, {
 import { ThemeConfig } from "src/theme"
 import Button, { Kind } from "src/components/shared/Button"
 import Modal, { ModalHeader, ModalBody } from "src/components/shared/Modal"
-import AppContext, {
+import {
+  AppContext,
   Props as AppContextProps,
 } from "src/components/core/AppContext"
 import UISelectbox from "src/components/shared/Dropdown"
@@ -49,6 +50,7 @@ export interface Props {
   developerMode: boolean
   openThemeCreator: () => void
   animateModal: boolean
+  metricsMgr: MetricsManager
 }
 
 /**
@@ -176,7 +178,7 @@ export class SettingsDialog extends PureComponent<Props, UserSettings> {
       this.context
     const newTheme = availableThemes[index]
 
-    MetricsManager.current.enqueue("themeChanged", {
+    this.props.metricsMgr.enqueue("themeChanged", {
       oldThemeName: oldTheme.name,
       newThemeName: newTheme.name,
     })

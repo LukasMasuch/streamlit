@@ -16,6 +16,16 @@
 # /bin/sh is POSIX compliant, ie it's not bash.  So let's be explicit:
 SHELL=/bin/bash
 
+INSTALL_DEV_REQS ?= true
+INSTALL_TEST_REQS ?= true
+TENSORFLOW_SUPPORTED ?= $(shell python scripts/should_install_tensorflow.py)
+INSTALL_TENSORFLOW ?= $(shell python scripts/should_install_tensorflow.py)
+USE_CONSTRAINT_FILE ?= true
+PYTHON_VERSION := $(shell python --version | cut -d " " -f 2 | cut -d "." -f 1-2)
+GITHUB_REPOSITORY ?= streamlit/streamlit
+CONSTRAINTS_BRANCH ?= constraints-develop
+CONSTRAINTS_URL ?= https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${CONSTRAINTS_BRANCH}/constraints-${PYTHON_VERSION}.txt
+
 # Black magic to get module directories
 PYTHON_MODULES := $(foreach initpy, $(foreach dir, $(wildcard lib/*), $(wildcard $(dir)/__init__.py)), $(realpath $(dir $(initpy))))
 
@@ -52,52 +62,65 @@ build-deps: mini-init develop
 
 .PHONY: init
 # Install all Python and JS dependencies.
-init: setup pipenv-install react-init protobuf
+init: python-init-all react-init protobuf
 
 .PHONY: mini-init
 # Install minimal Python and JS dependencies for development.
-mini-init: setup pipenv-dev-install react-init protobuf
+mini-init: python-init-dev-only react-init protobuf
 
 .PHONY: frontend
 # Build frontend into static files.
 frontend: react-build
 
-.PHONY: setup
-setup:
-	pip install pipenv
+.PHONY: install
+# Install Streamlit into your Python environment.
+install:
+	cd lib ; python setup.py install
 
-.PHONY: pipenv-install
-pipenv-install: pipenv-dev-install py-test-install
+.PHONY: develop
+# Install Streamlit as links in your Python environment, pointing to local workspace.
+develop:
+	INSTALL_DEV_REQS=false INSTALL_TEST_REQS=false make python-init
 
-.PHONY: pipenv-dev-install
-pipenv-dev-install: lib/Pipfile
-	# Run pipenv install; don't update the Pipfile.lock.
-	# The lockfile is created to force resolution of all dependencies at once,
-	# but we don't actually want to use the lockfile.
-	cd lib; \
-		rm Pipfile.lock; \
-		pipenv install --dev
+.PHONY: python-init-all
+# Install Streamlit and all (test and dev) requirements
+python-init-all:
+	INSTALL_DEV_REQS=true INSTALL_TEST_REQS=true make python-init
 
-SHOULD_INSTALL_TENSORFLOW := $(shell python scripts/should_install_tensorflow.py)
-.PHONY: py-test-install
-py-test-install: lib/test-requirements.txt
-  	# As of Python 3.9, we're using pip's legacy-resolver when installing
-	# test-requirements.txt, because otherwise pip takes literal hours to finish.
-	# Skip --use-deprecated option, when building local E2E docker image, since it's not present in Python 3.7.11
-	if [ "${DOCKER}" = "true" ] ; then\
-  		pip install -r lib/test-requirements.txt;\
-  	else\
-		pip install -r lib/test-requirements.txt --use-deprecated=legacy-resolver;\
-	fi
-ifeq (${SHOULD_INSTALL_TENSORFLOW},true)
-	pip install -r lib/test-requirements-with-tensorflow.txt --use-deprecated=legacy-resolver
-else
-	@echo ""
-	@echo "Your system does not support the official, pre-built tensorflow binaries."
-	@echo "This generally happens because you are running Python 3.10 or have an Apple Silicon machine."
-	@echo "Skipping incompatible dependencies."
-	@echo ""
-endif
+.PHONY: python-init-dev-only
+# Install Streamlit and dev requirements
+python-init-dev-only:
+	INSTALL_DEV_REQS=true INSTALL_TEST_REQS=false make python-init
+
+.PHONY: python-init-test-only
+# Install Streamlit and test requirements
+python-init-test-only: lib/test-requirements.txt
+	INSTALL_DEV_REQS=false INSTALL_TEST_REQS=true make python-init
+
+.PHONY: python-init
+python-init:
+	pip_args=("install" "--editable" "lib[snowflake]");\
+	if [ "${USE_CONSTRAINT_FILE}" = "true" ] ; then\
+		pip_args+=(--constraint "${CONSTRAINTS_URL}"); \
+	fi;\
+	if [ "${INSTALL_DEV_REQS}" = "true" ] ; then\
+		pip_args+=("--requirement" "lib/dev-requirements.txt"); \
+	fi;\
+	if [ "${INSTALL_TEST_REQS}" = "true" ] ; then\
+		pip_args+=("--requirement" "lib/test-requirements.txt"); \
+		if [ "${INSTALL_TENSORFLOW}" = "true" ] ; then \
+			if [ "${TENSORFLOW_SUPPORTED}" = "false" ]; then \
+					echo "";\
+					echo "Your system does not support the official, pre-built tensorflow binaries.";\
+					echo "This generally happens because you are running Python 3.10 or have an Apple Silicon machine.";\
+					echo "";\
+					exit 1;\
+			fi;\
+			pip_args+=(--requirement lib/test-requirements-with-tensorflow.txt); \
+		fi;\
+	fi;\
+	echo "Running command: pip install $${pip_args[@]}";\
+	pip install $${pip_args[@]};
 
 .PHONY: pylint
 # Verify that our Python files are properly formatted.
@@ -115,8 +138,8 @@ pylint:
 .PHONY: pyformat
 # Fix Python files that are not properly formatted.
 pyformat:
-	pre-commit run black --all-files
-	pre-commit run isort --all-files
+	pre-commit run black --all-files --hook-stage manual
+	pre-commit run isort --all-files --hook-stage manual
 
 .PHONY: pytest
 # Run Python unit tests.
@@ -157,17 +180,6 @@ cli-smoke-tests:
 # Verify that CLI boots as expected when called with `python -m streamlit`
 cli-regression-tests: install
 	pytest scripts/cli_regression_tests.py
-
-.PHONY: install
-# Install Streamlit into your Python environment.
-install:
-	cd lib ; python setup.py install
-
-.PHONY: develop
-# Install Streamlit as links in your Python environment, pointing to local workspace.
-develop:
-	cd lib; \
-		pipenv install --skip-lock
 
 .PHONY: distribution
 # Create Python distribution files in dist/.
@@ -278,6 +290,13 @@ react-build:
 	rsync -av --delete --delete-excluded --exclude=reports \
 		frontend/build/ lib/streamlit/static/
 
+.PHONY: frontend-fast
+# Build frontend into static files faster by setting BUILD_AS_FAST_AS_POSSIBLE=true flag, which disables eslint and typechecking.
+frontend-fast:
+	cd frontend/ ; yarn run buildFast
+	rsync -av --delete --delete-excluded --exclude=reports \
+		frontend/build/ lib/streamlit/static/
+
 .PHONY: jslint
 # Lint the JS code
 jslint:
@@ -296,18 +315,18 @@ endif #CIRCLECI
 .PHONY: tstypecheck
 # Type check the JS/TS code
 tstypecheck:
-	pre-commit run typecheck --all-files
+	pre-commit run typecheck --all-files --hook-stage manual
 
 .PHONY: jsformat
 # Fix formatting issues in our JavaScript & TypeScript files.
 jsformat:
-	pre-commit run prettier --all-files
+	pre-commit run prettier --all-files --hook-stage manual
 
 .PHONY: jstest
 # Run JS unit tests.
 jstest:
 ifndef CIRCLECI
-	cd frontend; yarn run test
+	cd frontend; TESTPATH=$(TESTPATH) yarn run test
 else
 	# Previously we used --runInBand here, which just completely turns off parallelization.
 	# But since our CircleCI instance has 2 CPUs, use maxWorkers instead:
@@ -350,8 +369,7 @@ notices:
 	./scripts/append_license.sh frontend/src/assets/fonts/Source_Serif_Pro/Source-Serif-Pro.LICENSE
 	./scripts/append_license.sh frontend/src/assets/img/Material-Icons.LICENSE
 	./scripts/append_license.sh frontend/src/assets/img/Open-Iconic.LICENSE
-	./scripts/append_license.sh frontend/public/vendor/bokeh/bokeh-LICENSE.txt
-	./scripts/append_license.sh frontend/public/vendor/viz/viz.js-LICENSE.txt
+	./scripts/append_license.sh frontend/src/vendor/bokeh/bokeh-LICENSE.txt
 	./scripts/append_license.sh frontend/src/vendor/twemoji-LICENSE.txt
 	./scripts/append_license.sh frontend/src/vendor/Segment-LICENSE.txt
 	./scripts/append_license.sh frontend/src/vendor/react-bootstrap-LICENSE.txt
@@ -360,8 +378,8 @@ notices:
 .PHONY: headers
 # Update the license header on all source files.
 headers:
-	pre-commit run insert-license --all-files
-	pre-commit run license-headers --all-files
+	pre-commit run insert-license --all-files --hook-stage manual
+	pre-commit run license-headers --all-files --hook-stage manual
 
 .PHONY: build-test-env
 # Build docker image that mirrors circleci

@@ -16,9 +16,9 @@
 
 import React from "react"
 import styled from "@emotion/styled"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
 
-function translateGapWidth(gap: string, theme: Theme): string {
+function translateGapWidth(gap: string, theme: EmotionTheme): string {
   let gapWidth = theme.spacing.lg
   if (gap === "medium") {
     gapWidth = theme.spacing.threeXL
@@ -114,16 +114,6 @@ export const StyledColumn = styled.div<StyledColumnProps>(
   }
 )
 
-export interface StyledFormProps {
-  theme: Theme
-}
-
-export const StyledForm = styled.div<StyledFormProps>(({ theme }) => ({
-  padding: theme.spacing.lg,
-  border: `1px solid ${theme.colors.fadedText10}`,
-  borderRadius: theme.radii.md,
-}))
-
 export const styledVerticalBlockWrapperStyles: any = {
   display: "flex",
   flexDirection: "column",
@@ -136,7 +126,6 @@ export interface StyledVerticalBlockProps {
 }
 
 export const StyledVerticalBlock = styled.div<StyledVerticalBlockProps>(
-  // @ts-ignore
   ({ width, theme }) => ({
     width,
     position: "relative", // Required for the automatic width computation.

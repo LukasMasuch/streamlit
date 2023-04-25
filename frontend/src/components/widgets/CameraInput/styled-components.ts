@@ -17,7 +17,7 @@
 import styled, { CSSObject } from "@emotion/styled"
 import { transparentize } from "color2k"
 import { MouseEvent, ReactNode } from "react"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
 
 export interface CameraInputButtonProps {
   onClick?: (event: MouseEvent<HTMLButtonElement>) => any
@@ -37,7 +37,7 @@ enum Size {
   LARGE = "large",
 }
 
-function getSizeStyle(size: Size, theme: Theme): CSSObject {
+function getSizeStyle(size: Size, theme: EmotionTheme): CSSObject {
   switch (size) {
     case Size.XSMALL:
       return {
@@ -61,16 +61,14 @@ function getSizeStyle(size: Size, theme: Theme): CSSObject {
 
 type RequiredCameraInputButtonProps = Required<CameraInputButtonProps>
 
-export const StyledCameraInput = styled.div<StyledCameraInputProps>(
-  ({ theme, width }) => ({
-    // This is used to position the "Switch facing mode" button
-    // with respect to the webcam block.
-    position: "relative",
-    overflow: "hidden",
-    width: "100%",
-    objectFit: "contain",
-  })
-)
+export const StyledCameraInput = styled.div<StyledCameraInputProps>(() => ({
+  // This is used to position the "Switch facing mode" button
+  // with respect to the webcam block.
+  position: "relative",
+  overflow: "hidden",
+  width: "100%",
+  objectFit: "contain",
+}))
 
 export interface StyledBoxProps {
   width: number
@@ -108,7 +106,7 @@ export const StyledLink = styled.a(({ theme }) => ({
   textDecoration: "none",
 }))
 
-export const StyledSpan = styled.span(({ theme }) => ({
+export const StyledSpan = styled.span(() => ({
   display: "flex",
   alignItems: "center",
 }))
@@ -123,11 +121,11 @@ export const StyledSwitchFacingModeButton = styled.div(({ theme }) => ({
   opacity: 0.6,
 }))
 
-export const StyledWebcamWrapper = styled.div(({ theme }) => ({
+export const StyledWebcamWrapper = styled.div(() => ({
   display: "flex",
 }))
 
-export const StyledProgressBar = styled.div(({ theme }) => ({
+export const StyledProgressBar = styled.div(() => ({
   height: "fit-content",
   width: "100%",
   position: "absolute",
@@ -168,8 +166,10 @@ export const StyledCameraInputBaseButton =
     width: "100%",
     userSelect: "none",
     "&:focus": {
-      boxShadow: `0 0 0 0.2rem ${transparentize(theme.colors.primary, 0.5)}`,
       outline: "none",
+    },
+    "&:focus-visible": {
+      boxShadow: `0 0 0 0.2rem ${transparentize(theme.colors.primary, 0.5)}`,
     },
     ...getSizeStyle(Size.MEDIUM, theme),
   }))

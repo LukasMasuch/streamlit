@@ -62,13 +62,18 @@ class WebsocketSessionManager(SessionManager):
         user_info: Dict[str, Optional[str]],
         existing_session_id: Optional[str] = None,
     ) -> str:
-        assert (
-            existing_session_id not in self._active_session_info_by_id
-        ), f"session with id '{existing_session_id}' is already connected!"
+        if existing_session_id in self._active_session_info_by_id:
+            LOGGER.warning(
+                "Session with id %s is already connected! Connecting to a new session.",
+                existing_session_id,
+            )
 
-        session_info = existing_session_id and self._session_storage.get(
+        session_info = (
             existing_session_id
+            and existing_session_id not in self._active_session_info_by_id
+            and self._session_storage.get(existing_session_id)
         )
+
         if session_info:
             existing_session = session_info.session
             existing_session.register_file_watchers()
@@ -104,12 +109,15 @@ class WebsocketSessionManager(SessionManager):
     def disconnect_session(self, session_id: str) -> None:
         if session_id in self._active_session_info_by_id:
             active_session_info = self._active_session_info_by_id[session_id]
-            active_session_info.session.disconnect_file_watchers()
+            session = active_session_info.session
+
+            session.request_script_stop()
+            session.disconnect_file_watchers()
 
             self._session_storage.save(
                 SessionInfo(
                     client=None,
-                    session=active_session_info.session,
+                    session=session,
                     script_run_count=active_session_info.script_run_count,
                 )
             )

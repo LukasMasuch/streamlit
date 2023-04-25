@@ -14,23 +14,36 @@
  * limitations under the License.
  */
 
-import React, { ReactElement } from "react"
+import React, { PureComponent, ReactElement } from "react"
 import { act } from "react-dom/test-utils"
 
-import { shallow, mount } from "src/lib/test_util"
+import { ICustomThemeConfig } from "src/autogen/proto"
+
+import { mount, shallow } from "src/lib/test_util"
 
 import withHostCommunication, {
-  HostCommunicationHOC,
   HOST_COMM_VERSION,
+  HostCommunicationHOC,
 } from "./withHostCommunication"
 
-const TestComponentNaked = (props: {
+interface TestProps {
   hostCommunication: HostCommunicationHOC
-}): ReactElement => {
-  return <div>test</div>
+  theme: {
+    setImportedTheme: (themeInfo: ICustomThemeConfig) => void
+  }
+
+  /**
+   * A property that's not related to the withHostCommunication wrapper.
+   * We test that the wrapper passes unrelated props to its wrapped component.
+   */
+  unrelatedProp: string
 }
 
-const TestComponent = withHostCommunication(TestComponentNaked)
+class TestComponent extends PureComponent<TestProps> {
+  public render = (): ReactElement => <div>test</div>
+}
+
+const WrappedTestComponent = withHostCommunication(TestComponent)
 
 function mockEventListeners(): (type: string, event: any) => void {
   const listeners: { [name: string]: ((event: Event) => void)[] } = {}
@@ -40,23 +53,46 @@ function mockEventListeners(): (type: string, event: any) => void {
     listeners[event].push(cb)
   })
 
-  const dispatchEvent = (type: string, event: Event): void =>
+  return (type: string, event: Event): void =>
     listeners[type].forEach(cb => cb(event))
-  return dispatchEvent
 }
 
 describe("withHostCommunication HOC", () => {
   it("renders without crashing", () => {
-    const wrapper = shallow(<TestComponent />)
+    const wrapper = shallow(
+      <WrappedTestComponent
+        unrelatedProp={"mockLabel"}
+        theme={{ setImportedTheme: jest.fn() }}
+      />
+    )
 
     expect(wrapper.html()).not.toBeNull()
   })
 
   it("wrapped component should have hostCommunication prop", () => {
-    const wrapper = shallow(<TestComponent />)
-    expect(
-      wrapper.find(TestComponentNaked).prop("hostCommunication")
-    ).toBeDefined()
+    const wrapper = shallow(
+      <WrappedTestComponent
+        unrelatedProp={"mockLabel"}
+        theme={{ setImportedTheme: jest.fn() }}
+      />
+    )
+    expect(wrapper.find(TestComponent).prop("hostCommunication")).toBeDefined()
+  })
+
+  it("passes other props to wrapped component", () => {
+    const wrapper = shallow(
+      <WrappedTestComponent
+        unrelatedProp={"mockLabel"}
+        theme={{ setImportedTheme: jest.fn() }}
+      />
+    )
+    expect(wrapper.find(TestComponent).props().unrelatedProp).toBe("mockLabel")
+  })
+
+  it("defines displayName", () => {
+    expect(WrappedTestComponent.displayName).toBe(
+      "withHostCommunication(TestComponent)"
+    )
   })
 
   it("host should receive a GUEST_READY message", done => {
@@ -72,9 +108,14 @@ describe("withHostCommunication HOC", () => {
 
     window.addEventListener("message", listener)
 
-    const wrapper = mount(<TestComponent />)
+    const wrapper = mount(
+      <WrappedTestComponent
+        unrelatedProp={"mockLabel"}
+        theme={{ setImportedTheme: jest.fn() }}
+      />
+    )
     const hostCommunication: any = wrapper
-      .find(TestComponentNaked)
+      .find(TestComponent)
       .prop("hostCommunication")
 
     act(() => {
@@ -97,10 +138,15 @@ describe("withHostCommunication HOC receiving messages", () => {
     // interfere with each other.
     originalHash = window.location.hash
     dispatchEvent = mockEventListeners()
-    wrapper = mount(<TestComponent />)
+    wrapper = mount(
+      <WrappedTestComponent
+        unrelatedProp={"mockLabel"}
+        theme={{ setImportedTheme: jest.fn() }}
+      />
+    )
 
     const hostCommunication = wrapper
-      .find(TestComponentNaked)
+      .find(TestComponent)
       .prop("hostCommunication")
 
     act(() => {
@@ -155,7 +201,7 @@ describe("withHostCommunication HOC receiving messages", () => {
 
     wrapper.update()
 
-    const props = wrapper.find(TestComponentNaked).prop("hostCommunication")
+    const props = wrapper.find(TestComponent).prop("hostCommunication")
     expect(props.currentState.toolbarItems).toEqual([
       {
         borderless: true,
@@ -164,6 +210,35 @@ describe("withHostCommunication HOC receiving messages", () => {
         label: "",
       },
     ])
+  })
+
+  it("can process a received SET_CUSTOM_THEME_CONFIG message", () => {
+    const mockCustomThemeConfig = {
+      primaryColor: "#1A6CE7",
+      backgroundColor: "#FFFFFF",
+      secondaryBackgroundColor: "#F5F5F5",
+      textColor: "#1A1D21",
+      widgetBackgroundColor: "#FFFFFF",
+      widgetBorderColor: "#D3DAE8",
+    }
+    act(() => {
+      dispatchEvent(
+        "message",
+        new MessageEvent("message", {
+          data: {
+            stCommVersion: HOST_COMM_VERSION,
+            type: "SET_CUSTOM_THEME_CONFIG",
+            themeInfo: mockCustomThemeConfig,
+          },
+          origin: "http://devel.streamlit.test",
+        })
+      )
+    })
+
+    wrapper.update()
+
+    const theme = wrapper.find(TestComponent).prop("theme")
+    expect(theme.setImportedTheme).toHaveBeenCalledWith(mockCustomThemeConfig)
   })
 
   it("can process a received SET_SIDEBAR_CHEVRON_DOWNSHIFT message", () => {
@@ -183,7 +258,7 @@ describe("withHostCommunication HOC receiving messages", () => {
 
     wrapper.update()
 
-    const props = wrapper.find(TestComponentNaked).prop("hostCommunication")
+    const props = wrapper.find(TestComponent).prop("hostCommunication")
     expect(props.currentState.sidebarChevronDownshift).toBe(50)
   })
 
@@ -204,8 +279,92 @@ describe("withHostCommunication HOC receiving messages", () => {
 
     wrapper.update()
 
-    const props = wrapper.find(TestComponentNaked).prop("hostCommunication")
+    const props = wrapper.find(TestComponent).prop("hostCommunication")
     expect(props.currentState.hideSidebarNav).toBe(true)
+  })
+
+  it("can process a received STOP_SCRIPT message", () => {
+    act(() => {
+      dispatchEvent(
+        "message",
+        new MessageEvent("message", {
+          data: {
+            stCommVersion: HOST_COMM_VERSION,
+            type: "STOP_SCRIPT",
+          },
+          origin: "http://devel.streamlit.test",
+        })
+      )
+    })
+
+    wrapper.update()
+
+    const props = wrapper.find(TestComponent).prop("hostCommunication")
+    expect(props.currentState.scriptStopRequested).toBe(true)
+
+    act(() => {
+      props.onScriptStop()
+    })
+    wrapper.update()
+
+    const updatedProps = wrapper.find(TestComponent).prop("hostCommunication")
+    expect(updatedProps.currentState.scriptStopRequested).toBe(false)
+  })
+
+  it("can process a received RERUN_SCRIPT message", () => {
+    act(() => {
+      dispatchEvent(
+        "message",
+        new MessageEvent("message", {
+          data: {
+            stCommVersion: HOST_COMM_VERSION,
+            type: "RERUN_SCRIPT",
+          },
+          origin: "http://devel.streamlit.test",
+        })
+      )
+    })
+
+    wrapper.update()
+
+    const props = wrapper.find(TestComponent).prop("hostCommunication")
+    expect(props.currentState.scriptRerunRequested).toBe(true)
+
+    act(() => {
+      props.onScriptRerun()
+    })
+    wrapper.update()
+
+    const updatedProps = wrapper.find(TestComponent).prop("hostCommunication")
+    expect(updatedProps.currentState.scriptRerunRequested).toBe(false)
+  })
+
+  it("can process a received CLEAR_CACHE message", () => {
+    act(() => {
+      dispatchEvent(
+        "message",
+        new MessageEvent("message", {
+          data: {
+            stCommVersion: HOST_COMM_VERSION,
+            type: "CLEAR_CACHE",
+          },
+          origin: "http://devel.streamlit.test",
+        })
+      )
+    })
+
+    wrapper.update()
+
+    const props = wrapper.find(TestComponent).prop("hostCommunication")
+    expect(props.currentState.cacheClearRequested).toBe(true)
+
+    act(() => {
+      props.onCacheClear()
+    })
+    wrapper.update()
+
+    const updatedProps = wrapper.find(TestComponent).prop("hostCommunication")
+    expect(updatedProps.currentState.cacheClearRequested).toBe(false)
   })
 
   it("can process a received REQUEST_PAGE_CHANGE message", () => {
@@ -224,7 +383,7 @@ describe("withHostCommunication HOC receiving messages", () => {
     })
     wrapper.update()
 
-    const innerComponent = wrapper.find(TestComponentNaked)
+    const innerComponent = wrapper.find(TestComponent)
     const props = innerComponent.prop("hostCommunication")
     expect(props.currentState.requestedPageScriptHash).toBe("hash1")
 
@@ -233,7 +392,7 @@ describe("withHostCommunication HOC receiving messages", () => {
     })
     wrapper.update()
 
-    const innerComponent2 = wrapper.find(TestComponentNaked)
+    const innerComponent2 = wrapper.find(TestComponent)
     const props2 = innerComponent2.prop("hostCommunication")
     expect(props2.currentState.requestedPageScriptHash).toBe(null)
   })
@@ -255,7 +414,7 @@ describe("withHostCommunication HOC receiving messages", () => {
 
     wrapper.update()
 
-    const props = wrapper.find(TestComponentNaked).prop("hostCommunication")
+    const props = wrapper.find(TestComponent).prop("hostCommunication")
     expect(props.currentState.pageLinkBaseUrl).toBe(
       "https://share.streamlit.io/vdonato/foo/bar"
     )
@@ -264,7 +423,7 @@ describe("withHostCommunication HOC receiving messages", () => {
   describe("Test different origins", () => {
     it("exact pattern", () => {
       const hostCommunication = wrapper
-        .find(TestComponentNaked)
+        .find(TestComponent)
         .prop("hostCommunication")
 
       act(() => {
@@ -291,7 +450,7 @@ describe("withHostCommunication HOC receiving messages", () => {
 
     it("wildcard pattern", () => {
       const hostCommunication = wrapper
-        .find(TestComponentNaked)
+        .find(TestComponent)
         .prop("hostCommunication")
 
       act(() => {
@@ -318,7 +477,7 @@ describe("withHostCommunication HOC receiving messages", () => {
 
     it("ignores non-matching origins", () => {
       const hostCommunication = wrapper
-        .find(TestComponentNaked)
+        .find(TestComponent)
         .prop("hostCommunication")
 
       act(() => {
@@ -347,10 +506,15 @@ describe("withHostCommunication HOC receiving messages", () => {
 
 describe("withHostCommunication HOC external auth token handling", () => {
   it("resolves promise to undefined immediately if useExternalAuthToken is false", async () => {
-    const wrapper = mount(<TestComponent />)
+    const wrapper = mount(
+      <WrappedTestComponent
+        unrelatedProp={"mockLabel"}
+        theme={{ setImportedTheme: jest.fn() }}
+      />
+    )
 
     const hostCommunication = wrapper
-      .find(TestComponentNaked)
+      .find(TestComponent)
       .prop("hostCommunication")
 
     act(() => {
@@ -367,10 +531,15 @@ describe("withHostCommunication HOC external auth token handling", () => {
 
   it("waits to receive SET_AUTH_TOKEN message before resolving promise if useExternalAuthToken is true", async () => {
     const dispatchEvent = mockEventListeners()
-    const wrapper = mount(<TestComponent />)
+    const wrapper = mount(
+      <WrappedTestComponent
+        unrelatedProp={"mockLabel"}
+        theme={{ setImportedTheme: jest.fn() }}
+      />
+    )
 
     let hostCommunication = wrapper
-      .find(TestComponentNaked)
+      .find(TestComponent)
       .prop("hostCommunication")
 
     // Simulate receiving a response from the Streamlit server's
@@ -416,9 +585,7 @@ describe("withHostCommunication HOC external auth token handling", () => {
     })
     wrapper.update()
 
-    hostCommunication = wrapper
-      .find(TestComponentNaked)
-      .prop("hostCommunication")
+    hostCommunication = wrapper.find(TestComponent).prop("hostCommunication")
 
     // Simulate the browser tab disconnecting and reconnecting, which from the
     // withHostCommunication hoc's perspective is only seen as a new call to

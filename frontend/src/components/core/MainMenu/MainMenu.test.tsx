@@ -16,26 +16,27 @@
 
 import React from "react"
 
-import { mount } from "src/lib/test_util"
+import { mount, render } from "src/lib/test_util"
 import { IMenuItem } from "src/hocs/withHostCommunication/types"
 
-import { GitInfo, IGitInfo } from "src/autogen/proto"
+import { Config, GitInfo, IGitInfo } from "src/autogen/proto"
 import { IDeployErrorDialog } from "src/components/core/StreamlitDialog/DeployErrorDialogs/types"
 import {
   DetachedHead,
   ModuleIsNotAdded,
   NoRepositoryDetected,
-  RepoIsAhead,
-  UncommittedChanges,
-  UntrackedFiles,
 } from "src/components/core/StreamlitDialog/DeployErrorDialogs"
 
 import MainMenu, { Props } from "./MainMenu"
+import { waitFor } from "@testing-library/dom"
+import { fireEvent, RenderResult } from "@testing-library/react"
+import { MockMetricsManager } from "src/lib/mocks/mocks"
 
 const { GitStates } = GitInfo
 
 const getProps = (extend?: Partial<Props>): Props => ({
   aboutCallback: jest.fn(),
+  printCallback: jest.fn(),
   clearCacheCallback: jest.fn(),
   isServerConnected: true,
   quickRerunCallback: jest.fn(),
@@ -50,12 +51,37 @@ const getProps = (extend?: Partial<Props>): Props => ({
   closeDialog: jest.fn(),
   canDeploy: true,
   menuItems: {},
-  hostIsOwner: false,
+  developmentMode: true,
   gitInfo: null,
+  metricsMgr: new MockMetricsManager(),
+  toolbarMode: Config.ToolbarMode.AUTO,
   ...extend,
 })
 
-describe("App", () => {
+async function openMenu(wrapper: RenderResult): Promise<void> {
+  fireEvent.click(wrapper.getByRole("button"))
+  await waitFor(() => expect(wrapper.findByRole("listbox")).toBeDefined())
+}
+
+function getMenuStructure(
+  renderResult: RenderResult
+): ({ type: "separator" } | { type: "option"; label: string })[][] {
+  return Array.from(
+    renderResult.baseElement.querySelectorAll('[role="listbox"]')
+  ).map(listBoxElement => {
+    return Array.from(
+      listBoxElement.querySelectorAll(
+        '[role=option] span:first-of-type, [data-testid="main-menu-divider"]'
+      )
+    ).map(d =>
+      d.getAttribute("data-testid") == "main-menu-divider"
+        ? { type: "separator" }
+        : { type: "option", label: d.textContent as string }
+    )
+  })
+}
+
+describe("MainMenu", () => {
   it("renders without crashing", () => {
     const props = getProps()
     const wrapper = mount(<MainMenu {...props} />)
@@ -63,7 +89,7 @@ describe("App", () => {
     expect(wrapper).toBeDefined()
   })
 
-  it("should render host menu items", () => {
+  it("should render host menu items", async () => {
     const items: IMenuItem[] = [
       {
         type: "separator",
@@ -85,127 +111,61 @@ describe("App", () => {
     const props = getProps({
       hostMenuItems: items,
     })
-    const wrapper = mount(<MainMenu {...props} />)
-    const popoverContent = wrapper.find("StatefulPopover").prop("content")
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
 
-    // @ts-ignore
-    const menuWrapper = mount(popoverContent(() => {}))
-
-    // @ts-ignore
-    const menuLabels = menuWrapper
-      .find("MenuStatefulContainer")
-      .at(0)
-      .prop("items")
-      // @ts-ignore
-      .map(item => item.label)
-    expect(menuLabels).toEqual([
-      "Rerun",
-      "Settings",
-      "Record a screencast",
-      "Report a bug",
-      "Get help",
-      "View app source",
-      "Report bug with app",
-      "About",
-    ])
-
-    // @ts-ignore
-    const devMenuLabels = menuWrapper
-      .find("MenuStatefulContainer")
-      .at(1)
-      .prop("items")
-      // @ts-ignore
-      .map(item => item.label)
-    expect(devMenuLabels).toEqual([
-      "Developer options",
-      "Clear cache",
-      "Streamlit Cloud",
-      "Report a Streamlit bug",
-      "Visit Streamlit docs",
-      "Visit Streamlit forums",
-    ])
+    await waitFor(() =>
+      expect(
+        wrapper
+          .getAllByRole("option")
+          .map(item => item.querySelector("span:first-of-type")?.textContent)
+      ).toEqual([
+        "Rerun",
+        "Settings",
+        "Print",
+        "Record a screencast",
+        "View app source",
+        "Report bug with app",
+        "About",
+        "Developer options",
+        "Clear cache",
+      ])
+    )
   })
 
-  it("should render core set of menu elements", () => {
+  it("should render core set of menu elements", async () => {
     const props = getProps()
-    const wrapper = mount(<MainMenu {...props} />)
-    const popoverContent = wrapper.find("StatefulPopover").prop("content")
-    // @ts-ignore
-    const menuWrapper = mount(popoverContent(() => {}))
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
 
-    // @ts-ignore
-    const menuLabels = menuWrapper
-      .find("MenuStatefulContainer")
-      .at(0)
-      .prop("items")
-      // @ts-ignore
-      .map(item => item.label)
-    expect(menuLabels).toEqual([
-      "Rerun",
-      "Settings",
-      "Record a screencast",
-      "Report a bug",
-      "Get help",
-      "About",
-    ])
-
-    // @ts-ignore
-    const devMenuLabels = menuWrapper
-      .find("MenuStatefulContainer")
-      .at(1)
-      .prop("items")
-      // @ts-ignore
-      .map(item => item.label)
-    expect(devMenuLabels).toEqual([
-      "Developer options",
-      "Clear cache",
-      "Deploy this app",
-      "Streamlit Cloud",
-      "Report a Streamlit bug",
-      "Visit Streamlit docs",
-      "Visit Streamlit forums",
-    ])
+    await waitFor(() =>
+      expect(
+        wrapper
+          .getAllByRole("option")
+          .map(item => item.querySelector("span:first-of-type")?.textContent)
+      ).toEqual([
+        "Rerun",
+        "Settings",
+        "Print",
+        "Record a screencast",
+        "About",
+        "Developer options",
+        "Clear cache",
+        "Deploy this app",
+      ])
+    )
   })
 
-  it("should render deploy app menu item", () => {
+  it("should render deploy app menu item", async () => {
     const props = getProps({ gitInfo: {} })
-    const wrapper = mount(<MainMenu {...props} />)
-    const popoverContent = wrapper.find("StatefulPopover").prop("content")
-    // @ts-ignore
-    const menuWrapper = mount(popoverContent(() => {}))
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
 
-    // @ts-ignore
-    const menuLabels = menuWrapper
-      .find("MenuStatefulContainer")
-      .at(0)
-      .prop("items")
-      // @ts-ignore
-      .map(item => item.label)
-    expect(menuLabels).toEqual([
-      "Rerun",
-      "Settings",
-      "Record a screencast",
-      "Report a bug",
-      "Get help",
-      "About",
-    ])
-
-    // @ts-ignore
-    const devMenuLabels = menuWrapper
-      .find("MenuStatefulContainer")
-      .at(1)
-      .prop("items")
-      // @ts-ignore
-      .map(item => item.label)
-    expect(devMenuLabels).toEqual([
-      "Developer options",
-      "Clear cache",
-      "Deploy this app",
-      "Streamlit Cloud",
-      "Report a Streamlit bug",
-      "Visit Streamlit docs",
-      "Visit Streamlit forums",
-    ])
+    await waitFor(() =>
+      expect(
+        wrapper.getByRole("option", { name: "Deploy this app" })
+      ).toBeDefined()
+    )
   })
 
   describe("Onclick deploy button", () => {
@@ -219,24 +179,24 @@ describe("App", () => {
       const wrapper = mount(<MainMenu {...props} />)
       const popoverContent = wrapper.find("StatefulPopover").prop("content")
 
-      // @ts-ignore
+      // @ts-expect-error
       const menuWrapper = mount(popoverContent(() => {}))
       const items: any = menuWrapper.find("StatefulMenu").at(1).prop("items")
 
       const deployOption = items.find(
-        // @ts-ignore
+        // @ts-expect-error
         ({ label }) => label === "Deploy this app"
       )
 
       deployOption.onClick()
 
-      // @ts-ignore
+      // @ts-expect-error
       const dialog = dialogComponent(props.gitInfo.module)
-      // @ts-ignore
+      // @ts-expect-error
       expect(props.showDeployError.mock.calls[0][0]).toStrictEqual(
         dialog.title
       )
-      // @ts-ignore
+      // @ts-expect-error
       expect(props.showDeployError.mock.calls[0][1]).toStrictEqual(dialog.body)
     }
 
@@ -285,45 +245,6 @@ describe("App", () => {
         ModuleIsNotAdded
       )
     })
-
-    it("should display the correct modal if there are uncommitted changes in the repo", () => {
-      testDeployErrorModal(
-        {
-          repository: "repo",
-          branch: "branch",
-          module: "module.py",
-          state: GitStates.DEFAULT,
-          uncommittedFiles: ["module.py"],
-          untrackedFiles: [],
-        },
-        UncommittedChanges
-      )
-    })
-
-    it("should display the correct modal if there are changes not pushed to GitHub", () => {
-      const deployParams: IGitInfo = {
-        repository: "repo",
-        branch: "branch",
-        module: "module.py",
-        uncommittedFiles: [],
-        untrackedFiles: [],
-        state: GitStates.AHEAD_OF_REMOTE,
-      }
-      testDeployErrorModal(deployParams, RepoIsAhead)
-    })
-
-    it("should display the correct modal if there are untracked files", () => {
-      testDeployErrorModal(
-        {
-          repository: "repo",
-          branch: "branch",
-          module: "module.py",
-          state: GitStates.DEFAULT,
-          untrackedFiles: ["another-file.py"],
-        },
-        UntrackedFiles
-      )
-    })
   })
 
   it("should not render set of configurable elements", () => {
@@ -335,25 +256,26 @@ describe("App", () => {
     const props = getProps({ menuItems })
     const wrapper = mount(<MainMenu {...props} />)
     const popoverContent = wrapper.find("StatefulPopover").prop("content")
-    // @ts-ignore
+    // @ts-expect-error
     const menuWrapper = mount(popoverContent(() => {}))
 
-    // @ts-ignore
+    // @ts-expect-error
     const menuLabels = menuWrapper
       .find("MenuStatefulContainer")
       .at(0)
       .prop("items")
-      // @ts-ignore
+      // @ts-expect-error
       .map(item => item.label)
     expect(menuLabels).toEqual([
       "Rerun",
       "Settings",
+      "Print",
       "Record a screencast",
       "About",
     ])
   })
 
-  it("should not render report a bug in core menu", () => {
+  it("should not render report a bug in core menu", async () => {
     const menuItems = {
       getHelpUrl: "testing",
       hideGetHelp: false,
@@ -361,57 +283,230 @@ describe("App", () => {
       aboutSectionMd: "",
     }
     const props = getProps({ menuItems })
-    const wrapper = mount(<MainMenu {...props} />)
-    const popoverContent = wrapper.find("StatefulPopover").prop("content")
-    // @ts-ignore
-    const menuWrapper = mount(popoverContent(() => {}))
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
 
-    // @ts-ignore
-    const menuLabels = menuWrapper
-      .find("MenuStatefulContainer")
-      .at(0)
-      .prop("items")
-      // @ts-ignore
-      .map(item => item.label)
-    expect(menuLabels).toEqual([
-      "Rerun",
-      "Settings",
-      "Record a screencast",
-      "Get help",
-      "About",
-    ])
+    await waitFor(() =>
+      expect(
+        wrapper.queryByRole("option", { name: "Report a bug" })
+      ).toBeNull()
+    )
   })
 
-  it("should not render dev menu when hostIsOwner is false and not on localhost", () => {
-    // set isLocalhost to false by deleting window.location.
-    // Source: https://www.benmvp.com/blog/mocking-window-location-methods-jest-jsdom/
-    // @ts-ignore
-    delete window.location
-
-    // @ts-ignore
-    window.location = {
-      assign: jest.fn(),
+  it("should render report a bug in core menu", async () => {
+    const menuItems = {
+      reportABugUrl: "testing",
+      hideGetHelp: false,
+      hideReportABug: false,
+      aboutSectionMd: "",
     }
-    const props = getProps()
+    const props = getProps({ menuItems })
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
+
+    await waitFor(() =>
+      expect(
+        wrapper.getByRole("option", { name: "Report a bug" })
+      ).toBeDefined()
+    )
+  })
+
+  it("should not render dev menu when developmentMode is false", () => {
+    const props = getProps({ developmentMode: false })
     const wrapper = mount(<MainMenu {...props} />)
     const popoverContent = wrapper.find("StatefulPopover").prop("content")
-    // @ts-ignore
+    // @ts-expect-error
     const menuWrapper = mount(popoverContent(() => {}))
 
-    // @ts-ignore
+    // @ts-expect-error
     const menuLabels = menuWrapper
       .find("MenuStatefulContainer")
       // make sure that we only have one menu otherwise prop will fail
       .prop("items")
-      // @ts-ignore
+      // @ts-expect-error
       .map(item => item.label)
     expect(menuLabels).toEqual([
       "Rerun",
       "Settings",
+      "Print",
       "Record a screencast",
-      "Report a bug",
-      "Get help",
       "About",
+    ])
+  })
+
+  it.each([
+    [Config.ToolbarMode.AUTO],
+    [Config.ToolbarMode.DEVELOPER],
+    [Config.ToolbarMode.VIEWER],
+    [Config.ToolbarMode.MINIMAL],
+  ])("should render host menu items if available[%s]", async toolbarMode => {
+    const props = getProps({
+      toolbarMode,
+      hostMenuItems: [
+        { label: "Host menu item", key: "host-item", type: "text" },
+      ],
+    })
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
+
+    const menuStructure = getMenuStructure(wrapper)
+    expect(menuStructure[0]).toContainEqual({
+      type: "option",
+      label: "Host menu item",
+    })
+  })
+
+  it("should hide hamburger when toolbarMode is Minimal and no host items", async () => {
+    const props = getProps({
+      developmentMode: false,
+      toolbarMode: Config.ToolbarMode.MINIMAL,
+      hostMenuItems: [],
+    })
+
+    const wrapper = render(<MainMenu {...props} />)
+
+    expect(wrapper.queryByRole("button")).toBeNull()
+  })
+
+  it("should skip divider from host menu items if it is at the beginning and end", async () => {
+    const props = getProps({
+      developmentMode: false,
+      toolbarMode: Config.ToolbarMode.MINIMAL,
+      hostMenuItems: [
+        { type: "separator" },
+        { type: "text", label: "View all apps", key: "viewAllApps" },
+        { type: "separator" },
+        { type: "text", label: "About Streamlit Cloud", key: "about" },
+        { type: "separator" },
+      ],
+    })
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
+
+    const menuStructure = getMenuStructure(wrapper)
+    expect(menuStructure).toEqual([
+      [{ type: "option", label: "View all apps" }],
+    ])
+  })
+
+  it.each([
+    [
+      ["getHelpUrl", "reportABugUrl", "aboutSectionMd"],
+      [
+        {
+          label: "Report a bug",
+          type: "option",
+        },
+        {
+          label: "Get help",
+          type: "option",
+        },
+        {
+          type: "separator",
+        },
+        {
+          label: "About",
+          type: "option",
+        },
+      ],
+    ],
+    [
+      ["getHelpUrl"],
+      [
+        {
+          label: "Get help",
+          type: "option",
+        },
+      ],
+    ],
+    [
+      ["reportABugUrl"],
+      [
+        {
+          label: "Report a bug",
+          type: "option",
+        },
+      ],
+    ],
+    [
+      ["aboutSectionMd"],
+      [
+        {
+          label: "About",
+          type: "option",
+        },
+      ],
+    ],
+  ])(
+    "should render custom items in minimal mode[%s]",
+    async (menuItems, expectedMenuItems) => {
+      const allMenuItems = {
+        getHelpUrl: "https://www.extremelycoolapp.com/help",
+        reportABugUrl: "https://www.extremelycoolapp.com/bug",
+        aboutSectionMd: "# This is a header. This is an *extremely* cool app!",
+      }
+      const props = getProps({
+        developmentMode: false,
+        toolbarMode: Config.ToolbarMode.MINIMAL,
+        menuItems: Object.fromEntries(
+          Object.entries(allMenuItems).filter(d => menuItems.includes(d[0]))
+        ),
+      })
+
+      const wrapper = render(<MainMenu {...props} />)
+      await openMenu(wrapper)
+
+      const menuStructure = getMenuStructure(wrapper)
+      expect(menuStructure).toEqual([expectedMenuItems])
+    }
+  )
+
+  it("should render host menu items and custom items in minimal mode", async () => {
+    const props = getProps({
+      developmentMode: false,
+      toolbarMode: Config.ToolbarMode.MINIMAL,
+      hostMenuItems: [
+        { type: "separator" },
+        { type: "text", label: "View all apps", key: "viewAllApps" },
+        { type: "separator" },
+        { type: "text", label: "About Streamlit Cloud", key: "about" },
+        { type: "separator" },
+      ],
+      menuItems: {
+        getHelpUrl: "https://www.extremelycoolapp.com/help",
+        reportABugUrl: "https://www.extremelycoolapp.com/bug",
+        aboutSectionMd: "# This is a header. This is an *extremely* cool app!",
+      },
+    })
+    const wrapper = render(<MainMenu {...props} />)
+    await openMenu(wrapper)
+
+    const menuStructure = getMenuStructure(wrapper)
+    expect(menuStructure).toEqual([
+      [
+        {
+          label: "Report a bug",
+          type: "option",
+        },
+        {
+          label: "Get help",
+          type: "option",
+        },
+        {
+          type: "separator",
+        },
+        {
+          label: "View all apps",
+          type: "option",
+        },
+        {
+          type: "separator",
+        },
+        {
+          label: "About",
+          type: "option",
+        },
+      ],
     ])
   })
 })

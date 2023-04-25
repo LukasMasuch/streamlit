@@ -33,7 +33,7 @@ import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { Quiver } from "src/lib/Quiver"
 import { Arrow as ArrowProto } from "src/autogen/proto"
 import { WidgetInfo, WidgetStateManager } from "src/lib/WidgetStateManager"
-import { debounce } from "src/lib/utils"
+import { debounce, isNullOrUndefined } from "src/lib/utils"
 
 import EditingState from "./EditingState"
 import {
@@ -43,6 +43,7 @@ import {
   useDataEditor,
   useColumnSizer,
   useColumnSort,
+  useColumnLoader,
 } from "./hooks"
 import {
   BaseColumn,
@@ -53,6 +54,7 @@ import {
 import { StyledResizableContainer } from "./styled-components"
 
 import "@glideapps/glide-data-grid/dist/index.css"
+import DatetimePickerCell from "./customCells/DatetimePickerCell"
 
 // Min column width used for manual and automatic resizing
 const MIN_COLUMN_WIDTH = 50
@@ -65,6 +67,9 @@ const MAX_COLUMN_AUTO_WIDTH = 500
 const DEBOUNCE_TIME_MS = 100
 // Token used for missing values (null, NaN, etc.)
 const NULL_VALUE_TOKEN = "None"
+// Number of rows that triggers some optimization features
+// for large tables.
+const LARGE_TABLE_ROWS_THRESHOLD = 150000
 
 export interface DataFrameProps {
   element: ArrowProto
@@ -92,7 +97,7 @@ const drawMissingCells: DrawCustomCellCallback = args => {
           textMedium: theme.textLight,
         },
         // The following props are just added for technical reasons:
-        // @ts-ignore
+        // @ts-expect-error
         spriteManager: {},
         hyperWrapping: false,
       },
@@ -133,6 +138,12 @@ function DataFrame({
 
   const [isFocused, setIsFocused] = React.useState<boolean>(true)
 
+  // Determine if the device is primary using touch as input:
+  const isTouchDevice = React.useMemo<boolean>(
+    () => window.matchMedia && window.matchMedia("(pointer: coarse)").matches,
+    []
+  )
+
   const [gridSelection, setGridSelection] = React.useState<GridSelection>({
     columns: CompactSelection.empty(),
     rows: CompactSelection.empty(),
@@ -159,13 +170,31 @@ function DataFrame({
     },
     []
   )
+
+  // This is done to keep some backwards compatibility
+  // so that old arrow proto messages from the st.dataframe
+  // would still work. Those messages don't have the
+  // editingMode field defined.
+  if (isNullOrUndefined(element.editingMode)) {
+    element.editingMode = ArrowProto.EditingMode.READ_ONLY
+  }
+
+  const { READ_ONLY, DYNAMIC } = ArrowProto.EditingMode
+
   // Number of rows of the table minus 1 for the header row:
-  const originalNumRows = Math.max(0, data.dimensions.rows - 1)
-  // For empty tables (editing mode != dynamic), we show an extra row that
+  const dataDimensions = data.dimensions
+  const originalNumRows = Math.max(0, dataDimensions.rows - 1)
+
+  // For empty tables, we show an extra row that
   // contains "empty" as a way to indicate that the table is empty.
-  const showEmptyState =
+  const isEmptyTable =
     originalNumRows === 0 &&
-    element.editingMode !== ArrowProto.EditingMode.DYNAMIC
+    // We don't show empty state for dynamic mode with a table that has
+    // data columns defined.
+    !(element.editingMode === DYNAMIC && dataDimensions.dataColumns > 0)
+
+  // For large tables, we apply some optimizations to handle large data
+  const isLargeTable = originalNumRows > LARGE_TABLE_ROWS_THRESHOLD
 
   const editingState = React.useRef<EditingState>(
     new EditingState(originalNumRows)
@@ -185,8 +214,32 @@ function DataFrame({
     setNumRows(editingState.current.getNumRows())
   }, [originalNumRows])
 
-  const { columns: originalColumns, getCellContent: getOriginalCellContent } =
-    useDataLoader(element, data, numRows, disabled, editingState)
+  const { columns: originalColumns } = useColumnLoader(element, data, disabled)
+
+  // On the first rendering, try to load initial widget state if
+  // it exist. This is required in the case that other elements
+  // are inserted before this widget.
+  React.useEffect(
+    () => {
+      if (element.editingMode !== READ_ONLY) {
+        const initialWidgetValue = widgetMgr.getStringValue(element)
+        if (initialWidgetValue) {
+          editingState.current.fromJson(initialWidgetValue, originalColumns)
+          setNumRows(editingState.current.getNumRows())
+        }
+      }
+    },
+    // TODO: fix incorrect hook usage. Could misbehave with add_rows so leaving here for now
+    /* eslint-disable react-hooks/exhaustive-deps */
+    []
+  )
+
+  const { getCellContent: getOriginalCellContent } = useDataLoader(
+    data,
+    originalColumns,
+    numRows,
+    editingState
+  )
 
   const { columns, sortColumn, getOriginalIndex, getCellContent } =
     useColumnSort(originalNumRows, originalColumns, getOriginalCellContent)
@@ -210,38 +263,36 @@ function DataFrame({
         clearSelection()
       }
 
-      if (triggerRerun) {
-        // Use debounce to prevent rapid updates to the widget state.
-        debounce(DEBOUNCE_TIME_MS, () => {
-          const currentEditingState = editingState.current.toJson(columns)
-          let currentWidgetState = widgetMgr.getStringValue(
-            element as WidgetInfo
+      // Use debounce to prevent rapid updates to the widget state.
+      debounce(DEBOUNCE_TIME_MS, () => {
+        const currentEditingState = editingState.current.toJson(columns)
+        let currentWidgetState = widgetMgr.getStringValue(
+          element as WidgetInfo
+        )
+
+        if (currentWidgetState === undefined) {
+          // Create an empty widget state
+          currentWidgetState = new EditingState(0).toJson([])
+        }
+
+        // Only update if there is actually a difference between editing and widget state
+        if (currentEditingState !== currentWidgetState) {
+          widgetMgr.setStringValue(
+            element as WidgetInfo,
+            currentEditingState,
+            {
+              fromUi: triggerRerun,
+            }
           )
-
-          if (currentWidgetState === undefined) {
-            // Create an empty widget state
-            currentWidgetState = new EditingState(0).toJson([])
-          }
-
-          // Only update if there is actually a difference between editing and widget state
-          if (currentEditingState !== currentWidgetState) {
-            widgetMgr.setStringValue(
-              element as WidgetInfo,
-              currentEditingState,
-              {
-                fromUi: true,
-              }
-            )
-          }
-        })()
-      }
+        }
+      })()
     },
-    [widgetMgr, element, numRows]
+    [widgetMgr, element, numRows, clearSelection, columns]
   )
 
   const { onCellEdited, onPaste, onRowAppended, onDelete } = useDataEditor(
     columns,
-    element.editingMode !== ArrowProto.EditingMode.DYNAMIC,
+    element.editingMode !== DYNAMIC,
     editingState,
     getCellContent,
     getOriginalIndex,
@@ -284,7 +335,7 @@ function DataFrame({
         span: [0, Math.max(columns.length - 1, 0)],
       } as GridCell
     },
-    [columns]
+    [columns, theme.textLight]
   )
 
   // This is required for the form clearing functionality:
@@ -299,14 +350,16 @@ function DataFrame({
     return () => {
       formClearHelper.disconnect()
     }
-  }, [])
+  }, [element.formId, resetEditingState, widgetMgr])
 
   return (
     <StyledResizableContainer
       className="stDataFrame"
       onBlur={() => {
-        // If the container loses focus, clear the current selection
-        if (!isFocused) {
+        // If the container loses focus, clear the current selection.
+        // Touch screen devices have issues with this, so we don't clear
+        // the selection on those devices.
+        if (!isFocused && !isTouchDevice) {
           clearSelection()
         }
       }}
@@ -354,19 +407,17 @@ function DataFrame({
           className="glideDataEditor"
           ref={dataEditorRef}
           columns={glideColumns}
-          rows={showEmptyState ? 1 : numRows}
+          rows={isEmptyTable ? 1 : numRows}
           minColumnWidth={MIN_COLUMN_WIDTH}
           maxColumnWidth={MAX_COLUMN_WIDTH}
           maxColumnAutoWidth={MAX_COLUMN_AUTO_WIDTH}
           rowHeight={rowHeight}
           headerHeight={rowHeight}
-          getCellContent={
-            showEmptyState ? getEmptyStateContent : getCellContent
-          }
+          getCellContent={isEmptyTable ? getEmptyStateContent : getCellContent}
           onColumnResize={onColumnResize}
           // Freeze all index columns:
           freezeColumns={
-            showEmptyState
+            isEmptyTable
               ? 0
               : columns.filter((col: BaseColumn) => col.isIndex).length
           }
@@ -386,15 +437,28 @@ function DataFrame({
           // Deactivate row markers and numbers:
           rowMarkers={"none"}
           // Deactivate selections:
-          rangeSelect={"rect"}
+          rangeSelect={!isTouchDevice ? "rect" : "none"}
           columnSelect={"none"}
           rowSelect={"none"}
           // Activate search:
           keybindings={{ search: true, downFill: true }}
           // Header click is used for column sorting:
-          onHeaderClicked={showEmptyState ? undefined : sortColumn}
+          onHeaderClicked={
+            // Deactivate sorting for empty state and for large dataframes:
+            isEmptyTable || isLargeTable ? undefined : sortColumn
+          }
           gridSelection={gridSelection}
-          onGridSelectionChange={setGridSelection}
+          onGridSelectionChange={(newSelection: GridSelection) => {
+            if (isFocused || isTouchDevice) {
+              // Only allow selection changes if the grid is focused.
+              // This is mainly done because there is a bug when overlay click actions
+              // are outside of the bounds of the table (e.g. select dropdown or date picker).
+              // This results in the first cell being selected for a short period of time
+              // But for touch devices, preventing this can cause issues to select cells.
+              // So we allow selection changes for touch devices even when it is not focused.
+              setGridSelection(newSelection)
+            }
+          }}
           // Apply different styling to missing cells:
           drawCell={drawMissingCells}
           theme={theme}
@@ -409,20 +473,22 @@ function DataFrame({
           // Add shadow for index columns and header on scroll:
           fixedShadowX={true}
           fixedShadowY={true}
-          // onPaste is deactivated in the read-only mode:
-          onPaste={false}
           experimental={{
             // We use an overlay scrollbar, so no need to have space for reserved for the scrollbar:
             scrollbarWidthOverride: 1,
           }}
           // Add support for additional cells:
           customRenderers={extraCellArgs.customRenderers}
-          // If element is editable, add additional properties:
-          {...(!showEmptyState &&
-            element.editingMode !== ArrowProto.EditingMode.READ_ONLY &&
+          // Add our custom SVG header icons:
+          headerIcons={theme.headerIcons}
+          // The default setup is read only, and therefore we deactivate paste here:
+          onPaste={false}
+          // If element is editable, enable editing features:
+          {...(!isEmptyTable &&
+            element.editingMode !== READ_ONLY &&
             !disabled && {
               // Support fill handle for bulk editing:
-              fillHandle: true,
+              fillHandle: !isTouchDevice ? true : false,
               // Support editing:
               onCellEdited,
               // Support pasting data for bulk editing:
@@ -430,24 +496,26 @@ function DataFrame({
               // Support deleting cells & rows:
               onDelete,
             })}
-          {...(element.editingMode === ArrowProto.EditingMode.DYNAMIC && {
-            // Support adding rows:
-            trailingRowOptions: {
-              sticky: false,
-              tint: true,
-            },
-            rowMarkerTheme: {
-              bgCell: theme.bgHeader,
-              bgCellMedium: theme.bgHeader,
-            },
-            rowMarkers: "checkbox",
-            rowSelectionMode: "auto",
-            rowSelect: disabled ? "none" : "multi",
-            // Support adding rows:
-            onRowAppended: disabled ? undefined : onRowAppended,
-            // Deactivate sorting, since it is not supported with dynamic editing:
-            onHeaderClicked: undefined,
-          })}
+          // If element is dynamic, enable adding & deleting rows:
+          {...(!isEmptyTable &&
+            element.editingMode === DYNAMIC && {
+              // Support adding rows:
+              trailingRowOptions: {
+                sticky: false,
+                tint: true,
+              },
+              rowMarkerTheme: {
+                bgCell: theme.bgHeader,
+                bgCellMedium: theme.bgHeader,
+              },
+              rowMarkers: "checkbox",
+              rowSelectionMode: "auto",
+              rowSelect: disabled ? "none" : "multi",
+              // Support adding rows:
+              onRowAppended: disabled ? undefined : onRowAppended,
+              // Deactivate sorting, since it is not supported with dynamic editing:
+              onHeaderClicked: undefined,
+            })}
         />
       </Resizable>
     </StyledResizableContainer>

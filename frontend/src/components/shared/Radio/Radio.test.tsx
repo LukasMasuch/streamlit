@@ -19,7 +19,7 @@ import { mount } from "src/lib/test_util"
 
 import { Radio as UIRadio, RadioGroup, ALIGN } from "baseui/radio"
 import { LabelVisibilityOptions } from "src/lib/utils"
-import { lightTheme } from "src/theme"
+import { mockTheme } from "src/lib/mocks/mockTheme"
 import Radio, { Props } from "./Radio"
 
 const getProps = (props: Partial<Props> = {}): Props => ({
@@ -30,7 +30,7 @@ const getProps = (props: Partial<Props> = {}): Props => ({
   onChange: () => {},
   options: ["a", "b", "c"],
   label: "Label",
-  theme: lightTheme.emotion,
+  theme: mockTheme.emotion,
   ...props,
 })
 
@@ -76,13 +76,13 @@ describe("Radio widget", () => {
     const wrappedDiv = wrapper.find("div").first()
 
     const { className, style } = wrappedDiv.props()
-    // @ts-ignore
+    // @ts-expect-error
     const splittedClassName = className.split(" ")
 
     expect(splittedClassName).toContain("row-widget")
     expect(splittedClassName).toContain("stRadio")
 
-    // @ts-ignore
+    // @ts-expect-error
     expect(style.width).toBe(getProps().width)
   })
 
@@ -135,7 +135,7 @@ describe("Radio widget", () => {
     const props = getProps()
     const wrapper = mount(<Radio {...props} />)
 
-    // @ts-ignore
+    // @ts-expect-error
     wrapper.find(RadioGroup).prop("onChange")({
       target: {
         value: "1",

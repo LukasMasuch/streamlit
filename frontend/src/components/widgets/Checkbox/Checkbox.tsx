@@ -22,7 +22,7 @@ import { Checkbox as CheckboxProto } from "src/autogen/proto"
 import { transparentize } from "color2k"
 import { FormClearHelper } from "src/components/widgets/Form"
 import { WidgetStateManager, Source } from "src/lib/WidgetStateManager"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
 import TooltipIcon from "src/components/shared/TooltipIcon"
 import { Placement } from "src/components/shared/Tooltip"
 import { StyledWidgetLabelHelpInline } from "src/components/widgets/BaseWidget"
@@ -38,7 +38,7 @@ export interface OwnProps {
 }
 
 interface ThemeProps {
-  theme: Theme
+  theme: EmotionTheme
 }
 
 export type Props = OwnProps & ThemeProps
@@ -125,7 +125,7 @@ class Checkbox extends React.PureComponent<Props, State> {
 
   public render(): React.ReactNode {
     const { theme, width, element, disabled, widgetMgr } = this.props
-    const { colors, spacing, radii } = theme
+    const { colors, spacing } = theme
     const style = { width }
     const color = disabled ? colors.fadedText40 : colors.bodyText
 
@@ -183,10 +183,6 @@ class Checkbox extends React.PureComponent<Props, State> {
                   borderRightWidth: "2px",
                   borderTopWidth: "2px",
                   borderBottomWidth: "2px",
-                  borderTopLeftRadius: radii.md,
-                  borderTopRightRadius: radii.md,
-                  borderBottomLeftRadius: radii.md,
-                  borderBottomRightRadius: radii.md,
                   borderLeftColor: borderColor,
                   borderRightColor: borderColor,
                   borderTopColor: borderColor,

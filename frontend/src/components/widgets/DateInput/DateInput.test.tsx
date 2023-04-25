@@ -23,7 +23,7 @@ import {
 } from "src/autogen/proto"
 
 import { Datepicker as UIDatePicker } from "baseui/datepicker"
-import { lightTheme } from "src/theme"
+import { mockTheme } from "src/lib/mocks/mockTheme"
 import DateInput, { Props } from "./DateInput"
 
 const getProps = (elementProps: Partial<DateInputProto> = {}): Props => ({
@@ -36,7 +36,7 @@ const getProps = (elementProps: Partial<DateInputProto> = {}): Props => ({
   }),
   width: 0,
   disabled: false,
-  theme: lightTheme.emotion,
+  theme: mockTheme.emotion,
   widgetMgr: new WidgetStateManager({
     sendRerunBackMsg: jest.fn(),
     formsDataChanged: jest.fn(),
@@ -101,12 +101,12 @@ describe("DateInput widget", () => {
     const wrappedDiv = wrapper.find("div").first()
 
     const { className, style } = wrappedDiv.props()
-    // @ts-ignore
+    // @ts-expect-error
     const splittedClassName = className.split(" ")
 
     expect(splittedClassName).toContain("stDateInput")
 
-    // @ts-ignore
+    // @ts-expect-error
     expect(style.width).toBe(getProps().width)
   })
 
@@ -138,7 +138,7 @@ describe("DateInput widget", () => {
     const wrapper = mount(<DateInput {...props} />)
     const newDate = new Date("2020/02/06")
 
-    // @ts-ignore
+    // @ts-expect-error
     wrapper.find(UIDatePicker).prop("onChange")({
       date: newDate,
     })
@@ -161,19 +161,18 @@ describe("DateInput widget", () => {
     const wrapper = mount(<DateInput {...props} />)
     const newDate = new Date("2020/02/06")
 
-    // @ts-ignore
+    // @ts-expect-error
     wrapper.find(UIDatePicker).prop("onChange")({
       date: newDate,
     })
     wrapper.update()
 
     expect(wrapper.find(UIDatePicker).prop("value")).toStrictEqual([newDate])
-    // @ts-ignore
+    // @ts-expect-error
     wrapper.find(UIDatePicker).prop("onChange")({
-      // @ts-ignore
       date: null,
     })
-    // @ts-ignore
+    // @ts-expect-error
     wrapper.find(UIDatePicker).prop("onClose")()
     wrapper.update()
     expect(wrapper.find(UIDatePicker).prop("value")).toStrictEqual([
@@ -229,7 +228,7 @@ describe("DateInput widget", () => {
     // Change the widget value
     const newDate = new Date("2020/02/06")
 
-    // @ts-ignore
+    // @ts-expect-error
     wrapper.find(UIDatePicker).prop("onChange")({
       date: newDate,
     })

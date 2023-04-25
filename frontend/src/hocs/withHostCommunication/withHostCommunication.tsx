@@ -17,8 +17,14 @@
 import React, { ComponentType, useState, useEffect, ReactElement } from "react"
 import hoistNonReactStatics from "hoist-non-react-statics"
 
+import { ICustomThemeConfig } from "src/autogen/proto"
+
 import Resolver from "src/lib/Resolver"
 import { isValidOrigin } from "src/lib/UriUtil"
+
+// Uncomment this code if testing out host communication with
+// frontend/hostframe.html:
+// import { IS_DEV_ENV } from "src/lib/baseconsts"
 
 import {
   IAllowedMessageOriginsResponse,
@@ -37,6 +43,19 @@ export interface HostCommunicationHOC {
    * Callback to be called when the Streamlit app closes a dialog.
    */
   onModalReset: () => void
+
+  /**
+   * Callback to be called when the Streamlit app rerun a script.
+   */
+  onScriptRerun: () => void
+  /**
+   * Callback to be called when the Streamlit app stop a script.
+   */
+  onScriptStop: () => void
+  /**
+   * Callback to be called when the Streamlit app clear a cache.
+   */
+  onCacheClear: () => void
 
   /**
    * Callback to be called when the Streamlit app's page is changed.
@@ -72,7 +91,7 @@ export interface HostCommunicationHOC {
 
 export const HOST_COMM_VERSION = 1
 
-export function sendMessageToHost(message: IGuestToHostMessage): void {
+function sendMessageToHost(message: IGuestToHostMessage): void {
   window.parent.postMessage(
     {
       stCommVersion: HOST_COMM_VERSION,
@@ -82,15 +101,29 @@ export function sendMessageToHost(message: IGuestToHostMessage): void {
   )
 }
 
-function withHostCommunication(
-  WrappedComponent: ComponentType<any>
-): ComponentType<any> {
-  function ComponentWithHostCommunication(props: any): ReactElement {
+interface InjectedProps {
+  hostCommunication: HostCommunicationHOC
+  theme: {
+    setImportedTheme: (themeInfo: ICustomThemeConfig) => void
+  }
+}
+
+type WrappedProps<P extends InjectedProps> = Omit<P, "hostCommunication">
+
+function withHostCommunication<P extends InjectedProps>(
+  WrappedComponent: ComponentType<P>
+): ComponentType<WrappedProps<P>> {
+  function ComponentWithHostCommunication(
+    props: WrappedProps<P>
+  ): ReactElement {
     // TODO(vdonato): Refactor this to use useReducer to make this less
     // unwieldy. We may want to consider installing the redux-toolkit package
     // even if we're not using redux just because it's so useful for reducing
     // this type of boilerplate.
     const [forcedModalClose, setForcedModalClose] = useState(false)
+    const [scriptStopRequested, setScriptStopRequested] = useState(false)
+    const [scriptRerunRequested, setScriptRerunRequested] = useState(false)
+    const [cacheClearRequested, setCacheClearRequested] = useState(false)
     const [hideSidebarNav, setHideSidebarNav] = useState(false)
     const [isOwner, setIsOwner] = useState(false)
     const [menuItems, setMenuItems] = useState<IMenuItem[]>([])
@@ -115,6 +148,14 @@ function withHostCommunication(
       }
 
       const { allowedOrigins, useExternalAuthToken } = allowedOriginsResp
+
+      // Uncomment this code if testing out host communication with
+      // frontend/hostframe.html:
+      //
+      // if (IS_DEV_ENV) {
+      //   allowedOrigins.push("http://localhost:8000")
+      // }
+
       if (!useExternalAuthToken) {
         deferredAuthToken.resolve(undefined)
       }
@@ -128,6 +169,7 @@ function withHostCommunication(
         // processing messages received from origins we haven't explicitly
         // labeled as trusted here to lower the probability that we end up
         // processing malicious input.
+
         if (
           message.stCommVersion !== HOST_COMM_VERSION ||
           !allowedOrigins.find(allowed => isValidOrigin(allowed, event.origin))
@@ -137,6 +179,15 @@ function withHostCommunication(
 
         if (message.type === "CLOSE_MODAL") {
           setForcedModalClose(true)
+        }
+        if (message.type === "STOP_SCRIPT") {
+          setScriptStopRequested(true)
+        }
+        if (message.type === "RERUN_SCRIPT") {
+          setScriptRerunRequested(true)
+        }
+        if (message.type === "CLEAR_CACHE") {
+          setCacheClearRequested(true)
         }
 
         if (message.type === "REQUEST_PAGE_CHANGE") {
@@ -187,6 +238,10 @@ function withHostCommunication(
         if (message.type === "UPDATE_HASH") {
           window.location.hash = message.hash
         }
+
+        if (message.type === "SET_CUSTOM_THEME_CONFIG") {
+          props.theme.setImportedTheme(message.themeInfo)
+        }
       }
 
       if (!allowedOrigins.length) {
@@ -199,15 +254,19 @@ function withHostCommunication(
       return () => {
         window.removeEventListener("message", receiveMessage)
       }
-    }, [allowedOriginsResp])
+    }, [allowedOriginsResp, deferredAuthToken, props.theme])
 
     return (
       <WrappedComponent
+        {...(props as P)}
         hostCommunication={
           {
             currentState: {
               authTokenPromise: deferredAuthToken.promise,
               forcedModalClose,
+              scriptRerunRequested,
+              scriptStopRequested,
+              cacheClearRequested,
               hideSidebarNav,
               isOwner,
               menuItems,
@@ -224,6 +283,15 @@ function withHostCommunication(
             onModalReset: () => {
               setForcedModalClose(false)
             },
+            onScriptStop: () => {
+              setScriptStopRequested(false)
+            },
+            onScriptRerun: () => {
+              setScriptRerunRequested(false)
+            },
+            onCacheClear: () => {
+              setCacheClearRequested(false)
+            },
             onPageChanged: () => {
               setRequestedPageScriptHash(null)
             },
@@ -231,7 +299,6 @@ function withHostCommunication(
             setAllowedOriginsResp,
           } as HostCommunicationHOC
         }
-        {...props}
       />
     )
   }

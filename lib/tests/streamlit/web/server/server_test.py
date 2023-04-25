@@ -15,9 +15,13 @@
 """Server.py unit tests"""
 
 import asyncio
+import contextlib
 import errno
 import os
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 from unittest.mock import patch
 
@@ -41,6 +45,7 @@ from streamlit.web.server.server import (
 )
 from tests.streamlit.message_mocks import create_dataframe_msg
 from tests.streamlit.web.server.server_test_case import ServerTestCase
+from tests.testutil import patch_config_options
 
 LOGGER = get_logger(__name__)
 
@@ -338,6 +343,116 @@ class PortRotateOneTest(unittest.TestCase):
                 )
 
 
+class SslServerTest(unittest.TestCase):
+    """Tests SSL server"""
+
+    @parameterized.expand(["server.sslCertFile", "server.sslKeyFile"])
+    def test_requires_two_options(self, option_name):
+        """
+        The test checks the behavior whenever one of the two required configuration
+        option is set.
+        """
+        with patch_config_options({option_name: "/tmp/file"}), pytest.raises(
+            SystemExit
+        ), self.assertLogs("streamlit.web.server.server") as logs:
+            start_listening(mock.MagicMock())
+        self.assertEqual(
+            logs.output,
+            [
+                "ERROR:streamlit.web.server.server:Options 'server.sslCertFile' and "
+                "'server.sslKeyFile' must be set together. Set missing options or "
+                "delete existing options."
+            ],
+        )
+
+    @parameterized.expand(["server.sslCertFile", "server.sslKeyFile"])
+    def test_missing_file(self, option_name):
+        """
+        The test checks the behavior whenever one of the two requires file is missing.
+        """
+        with contextlib.ExitStack() as exit_stack:
+            tmp_dir = exit_stack.enter_context(tempfile.TemporaryDirectory())
+
+            cert_file = Path(tmp_dir) / "cert.cert"
+            key_file = Path(tmp_dir) / "key.key"
+
+            new_options = {
+                "server.sslCertFile": cert_file,
+                "server.sslKeyFile": key_file,
+            }
+            exit_stack.enter_context(patch_config_options(new_options))
+
+            # Create only one file
+            Path(new_options[option_name]).write_text("TEST-CONTENT")
+
+            exit_stack.enter_context(pytest.raises(SystemExit))
+            logs = exit_stack.enter_context(
+                self.assertLogs("streamlit.web.server.server")
+            )
+
+            start_listening(mock.MagicMock())
+
+        self.assertRegex(
+            logs.output[0],
+            r"ERROR:streamlit\.web\.server\.server:(Cert|Key) file "
+            r"'.+' does not exist\.",
+        )
+
+    @parameterized.expand(["server.sslCertFile", "server.sslKeyFile"])
+    def test_invalid_file_content(self, option_name):
+        """
+        The test checks the behavior whenever one of the two requires file is corrupted.
+        """
+        with contextlib.ExitStack() as exit_stack:
+            tmp_dir = exit_stack.enter_context(tempfile.TemporaryDirectory())
+            cert_file = Path(tmp_dir) / "cert.cert"
+            key_file = Path(tmp_dir) / "key.key"
+
+            subprocess.check_call(
+                [
+                    "openssl",
+                    "req",
+                    "-x509",
+                    "-newkey",
+                    "rsa:4096",
+                    "-keyout",
+                    str(key_file),
+                    "-out",
+                    str(cert_file),
+                    "-sha256",
+                    "-days",
+                    "365",
+                    "-nodes",
+                    "-subj",
+                    "/CN=localhost",
+                    # sublectAltName is required by modern browsers
+                    # See: https://github.com/urllib3/urllib3/issues/497
+                    "-addext",
+                    "subjectAltName = DNS:localhost",
+                ]
+            )
+            new_options = {
+                "server.sslCertFile": cert_file,
+                "server.sslKeyFile": key_file,
+            }
+            exit_stack.enter_context(patch_config_options(new_options))
+
+            # Overwrite file with invalid content
+            Path(new_options[option_name]).write_text("INVALID-CONTENT")
+
+            exit_stack.enter_context(pytest.raises(SystemExit))
+            logs = exit_stack.enter_context(
+                self.assertLogs("streamlit.web.server.server")
+            )
+
+            start_listening(mock.MagicMock())
+        self.assertRegex(
+            logs.output[0],
+            r"ERROR:streamlit\.web\.server\.server:Failed to load SSL certificate\. "
+            r"Make sure cert file '.+' and key file '.+' are correct\.",
+        )
+
+
 class UnixSocketTest(unittest.TestCase):
     """Tests start_listening uses a unix socket when socket.address starts with
     unix://"""
@@ -399,7 +514,7 @@ class ScriptCheckEndpointExistsTest(tornado.testing.AsyncHTTPTestCase):
         server._runtime.does_script_run_without_error = (
             self.does_script_run_without_error
         )
-        server._runtime._eventloop = self.asyncio_loop
+        server._runtime._eventloop = self.io_loop.asyncio_loop
         return server._create_app()
 
     def test_endpoint(self):
@@ -408,14 +523,9 @@ class ScriptCheckEndpointExistsTest(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(b"test_message", response.body)
 
     def test_deprecated_endpoint(self):
-        with self.assertLogs("streamlit.web.server.server_util") as logs:
-            response = self.fetch("/script-health-check")
+        response = self.fetch("/script-health-check")
         self.assertEqual(200, response.code)
         self.assertEqual(b"test_message", response.body)
-        self.assertEqual(
-            logs.records[0].getMessage(),
-            "Endpoint '/script-health-check' is deprecated. Please use '/_stcore/script-health-check' instead.",
-        )
         self.assertEqual(
             response.headers["link"],
             f'<http://127.0.0.1:{self.get_http_port()}/_stcore/script-health-check>; rel="alternate"',

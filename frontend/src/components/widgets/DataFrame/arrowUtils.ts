@@ -28,7 +28,9 @@ import { notNullOrUndefined, isNullOrUndefined } from "src/lib/utils"
 import {
   BaseColumn,
   BaseColumnProps,
-  ColumnCreator,
+  DateColumn,
+  TimeColumn,
+  DateTimeColumn,
   ObjectColumn,
   BooleanColumn,
   NumberColumn,
@@ -36,6 +38,7 @@ import {
   CategoricalColumn,
   ListColumn,
   isErrorCell,
+  ColumnCreator,
 } from "./columns"
 
 /**
@@ -47,7 +50,7 @@ import {
  *
  * @return the CSS property value or undefined if the property is not found.
  */
-function extractCssProperty(
+export function extractCssProperty(
   htmlElementId: string,
   property: string,
   cssStyle: string
@@ -106,6 +109,14 @@ export function applyPandasStylerCss(
     themeOverride.bgCell = backgroundColor
   }
 
+  if (backgroundColor === "yellow" && fontColor === undefined) {
+    // Yellow is used by pandas styler as the default highlight color.
+    // But yellow won't work well with our default font color in dark mode.
+    // Therefore, we are overriding the font color to our dark font color which
+    // always works well with yellow background.
+    themeOverride.textDark = "#31333F"
+  }
+
   if (themeOverride) {
     // Apply the background and font color in the theme override
     return {
@@ -132,12 +143,19 @@ export function getColumnTypeFromArrow(arrowType: ArrowType): ColumnCreator {
   if (["unicode", "empty"].includes(typeName)) {
     return TextColumn
   }
-  if (
-    ["object", "date", "time", "datetime", "datetimetz"].includes(typeName)
-  ) {
+  if (["datetime", "datetimetz"].includes(typeName)) {
+    return DateTimeColumn
+  }
+  if (typeName === "time") {
+    return TimeColumn
+  }
+  if (typeName === "date") {
+    return DateColumn
+  }
+  if (["object", "decimal", "bytes"].includes(typeName)) {
     return ObjectColumn
   }
-  if (["boolean", "bool"].includes(typeName)) {
+  if (["bool"].includes(typeName)) {
     return BooleanColumn
   }
   if (
@@ -166,9 +184,6 @@ export function getColumnTypeFromArrow(arrowType: ArrowType): ColumnCreator {
   if (typeName.startsWith("list")) {
     return ListColumn
   }
-  if (["decimal", "bytes"].includes(typeName)) {
-    return ObjectColumn
-  }
 
   return ObjectColumn
 }
@@ -196,8 +211,9 @@ export function getIndexFromArrow(
 
   return {
     id: `index-${indexPosition}`,
-    isEditable,
+    name: title,
     title,
+    isEditable,
     arrowType,
     isIndex: true,
     isHidden: false,
@@ -228,25 +244,41 @@ export function getColumnFromArrow(
     } as ArrowType
   }
 
-  let columnTypeMetadata
+  let columnTypeOptions
   if (Quiver.getTypeName(arrowType) === "categorical") {
     // Get the available categories and use it in column type metadata
     const options = data.getCategoricalOptions(columnPosition)
     if (notNullOrUndefined(options)) {
-      columnTypeMetadata = {
-        options: ["", ...options.filter(opt => opt !== "")],
+      columnTypeOptions = {
+        options,
       }
     }
   }
 
   return {
     id: `column-${title}-${columnPosition}`,
-    isEditable: true,
+    name: title,
     title,
+    isEditable: true,
     arrowType,
-    columnTypeMetadata,
+    columnTypeOptions,
     isIndex: false,
     isHidden: false,
+  } as BaseColumnProps
+}
+
+/**
+ * Creates the column props for an empty index column.
+ * This is used for DataFrames that don't have any index.
+ * At least one column is required for glide.
+ */
+export function getEmptyIndexColumn(): BaseColumnProps {
+  return {
+    id: `empty-index`,
+    title: "",
+    indexNumber: 0,
+    isEditable: false,
+    isIndex: true,
   } as BaseColumnProps
 }
 
@@ -256,22 +288,17 @@ export function getColumnFromArrow(
  * @param data - The Arrow data.
  * @return the column props for all columns.
  */
-export function getColumnsFromArrow(data: Quiver): BaseColumnProps[] {
+export function getAllColumnsFromArrow(data: Quiver): BaseColumnProps[] {
   const columns: BaseColumnProps[] = []
 
+  // TODO(lukasmasuch): use data.dimensions instead here?
   const numIndices = data.types?.index?.length ?? 0
   const numColumns = data.columns?.[0]?.length ?? 0
 
   if (numIndices === 0 && numColumns === 0) {
     // Tables that don't have any columns cause an exception in glide-data-grid.
     // As a workaround, we are adding an empty index column in this case.
-    columns.push({
-      id: `empty-index`,
-      title: "",
-      indexNumber: 0,
-      isEditable: false,
-      isIndex: true,
-    } as BaseColumnProps)
+    columns.push(getEmptyIndexColumn())
     return columns
   }
 
@@ -335,30 +362,33 @@ export function getCellFromArrow(
     return cellTemplate
   }
 
-  if (notNullOrUndefined(arrowCell.displayContent)) {
-    const displayData = processDisplayData(arrowCell.displayContent)
-    // If the display content is set, use that instead of the content.
-    // This is only supported for text, object, date, datetime, time and number cells.
-    if (cellTemplate.kind === GridCellKind.Text) {
-      cellTemplate = {
-        ...cellTemplate,
-        displayData,
-      } as TextCell
-    } else if (cellTemplate.kind === GridCellKind.Number) {
-      cellTemplate = {
-        ...cellTemplate,
-        displayData,
-      } as NumberCell
+  if (!column.isEditable) {
+    // Only apply display content and css styles to non-editable cells.
+    if (notNullOrUndefined(arrowCell.displayContent)) {
+      const displayData = processDisplayData(arrowCell.displayContent)
+      // If the display content is set, use that instead of the content.
+      // This is only supported for text, object, date, datetime, time and number cells.
+      if (cellTemplate.kind === GridCellKind.Text) {
+        cellTemplate = {
+          ...cellTemplate,
+          displayData,
+        } as TextCell
+      } else if (cellTemplate.kind === GridCellKind.Number) {
+        cellTemplate = {
+          ...cellTemplate,
+          displayData,
+        } as NumberCell
+      }
+      // TODO (lukasmasuch): Also support datetime formatting here
     }
-    // TODO (lukasmasuch): Also support datetime formatting here
-  }
 
-  if (cssStyles && arrowCell.cssId) {
-    cellTemplate = applyPandasStylerCss(
-      cellTemplate,
-      arrowCell.cssId,
-      cssStyles
-    )
+    if (cssStyles && arrowCell.cssId) {
+      cellTemplate = applyPandasStylerCss(
+        cellTemplate,
+        arrowCell.cssId,
+        cssStyles
+      )
+    }
   }
   return cellTemplate
 }

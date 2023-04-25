@@ -15,12 +15,12 @@
  */
 
 import React from "react"
-import DeckGL from "deck.gl"
+import { DeckGL } from "deck.gl"
 import { shallow } from "src/lib/test_util"
-import { lightTheme } from "src/theme"
 
 import { DeckGlJsonChart as DeckGlJsonChartProto } from "src/autogen/proto"
 import { NavigationControl } from "react-map-gl"
+import { mockTheme } from "src/lib/mocks/mockTheme"
 import { DeckGlJsonChart, PropsWithHeight } from "./DeckGlJsonChart"
 
 const getProps = (
@@ -68,7 +68,7 @@ const getProps = (
     width: 0,
     mapboxToken: "mapboxToken",
     height: undefined,
-    theme: lightTheme.emotion,
+    theme: mockTheme.emotion,
   }
 }
 
@@ -89,14 +89,14 @@ describe("DeckGlJsonChart element", () => {
     expect(deckGL.length).toBe(1)
     expect(deckGL.prop("onViewStateChange")).toBeDefined()
 
-    // @ts-ignore
+    // @ts-expect-error
     deckGL.prop("onViewStateChange")({
       viewState: { pitch: 5, zoom: 5 },
     })
 
+    // @ts-expect-error
     wrapper.setProps(getProps({}, { pitch: 40.5, zoom: 10 }))
 
-    // @ts-ignore
     expect(wrapper.state("viewState")).toStrictEqual({
       pitch: 5,
       zoom: 10,
@@ -113,7 +113,7 @@ describe("DeckGlJsonChart element", () => {
     expect(deckGL.length).toBe(1)
     expect(deckGL.prop("getTooltip")).toBeDefined()
 
-    // @ts-ignore
+    // @ts-expect-error
     const createdTooltip = deckGL.prop("getTooltip")({
       object: {
         elevationValue: 10,
@@ -133,7 +133,7 @@ describe("DeckGlJsonChart element", () => {
     expect(deckGL.length).toBe(1)
     expect(deckGL.prop("getTooltip")).toBeDefined()
 
-    // @ts-ignore
+    // @ts-expect-error
     const createdTooltip = deckGL.prop("getTooltip")({
       object: {
         elevationValue: 10,

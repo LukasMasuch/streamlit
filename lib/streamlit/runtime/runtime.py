@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import asyncio
 import sys
 import time
 import traceback
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Awaitable, Dict, NamedTuple, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Awaitable, Dict, NamedTuple, Optional, Tuple, Type
 
 from typing_extensions import Final
 
@@ -30,6 +32,9 @@ from streamlit.runtime.app_session import AppSession
 from streamlit.runtime.caching import (
     get_data_cache_stats_provider,
     get_resource_cache_stats_provider,
+)
+from streamlit.runtime.caching.storage.local_disk_cache_storage import (
+    LocalDiskCacheStorageManager,
 )
 from streamlit.runtime.forward_msg_cache import (
     ForwardMsgCache,
@@ -58,6 +63,9 @@ from streamlit.runtime.uploaded_file_manager import UploadedFileManager
 from streamlit.runtime.websocket_session_manager import WebsocketSessionManager
 from streamlit.watcher import LocalSourcesWatcher
 
+if TYPE_CHECKING:
+    from streamlit.runtime.caching.storage import CacheStorageManager
+
 # Wait for the script run result for 60s and if no result is available give up
 SCRIPT_RUN_CHECK_TIMEOUT: Final = 60
 
@@ -81,6 +89,11 @@ class RuntimeConfig:
 
     # The storage backend for Streamlit's MediaFileManager.
     media_file_storage: MediaFileStorage
+
+    # The cache storage backend for Streamlit's st.cache_data.
+    cache_storage_manager: CacheStorageManager = field(
+        default_factory=LocalDiskCacheStorageManager
+    )
 
     # The SessionManager class to be used.
     session_manager_class: Type[SessionManager] = WebsocketSessionManager
@@ -115,18 +128,17 @@ class AsyncObjects(NamedTuple):
     need_send_data: asyncio.Event
 
     # Completed when the Runtime has started.
-    # (`Future` is not generic in Python 3.8, so we need to use quote-typing.)
-    started: "asyncio.Future[None]"
+    started: asyncio.Future[None]
 
     # Completed when the Runtime has stopped.
-    stopped: "asyncio.Future[None]"
+    stopped: asyncio.Future[None]
 
 
 class Runtime:
-    _instance: Optional["Runtime"] = None
+    _instance: Optional[Runtime] = None
 
     @classmethod
-    def instance(cls) -> "Runtime":
+    def instance(cls) -> Runtime:
         """Return the singleton Runtime instance. Raise an Error if the
         Runtime hasn't been created yet.
         """
@@ -177,6 +189,7 @@ class Runtime:
         self._uploaded_file_mgr = UploadedFileManager()
         self._uploaded_file_mgr.on_files_updated.connect(self._on_files_updated)
         self._media_file_mgr = MediaFileManager(storage=config.media_file_storage)
+        self._cache_storage_manager = config.cache_storage_manager
 
         self._session_mgr = config.session_manager_class(
             session_storage=config.session_storage,
@@ -203,6 +216,10 @@ class Runtime:
     @property
     def uploaded_file_mgr(self) -> UploadedFileManager:
         return self._uploaded_file_mgr
+
+    @property
+    def cache_storage_manager(self) -> CacheStorageManager:
+        return self._cache_storage_manager
 
     @property
     def media_file_mgr(self) -> MediaFileManager:

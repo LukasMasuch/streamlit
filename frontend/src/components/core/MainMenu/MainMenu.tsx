@@ -27,40 +27,30 @@ import { StatefulMenu } from "baseui/menu"
 import { Menu } from "@emotion-icons/material-outlined"
 
 import { useTheme } from "@emotion/react"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
 import Button, { Kind } from "src/components/shared/Button"
 import { PLACEMENT, StatefulPopover } from "baseui/popover"
 import {
   DetachedHead,
   ModuleIsNotAdded,
   NoRepositoryDetected,
-  RepoIsAhead,
-  UncommittedChanges,
-  UntrackedFiles,
 } from "src/components/core/StreamlitDialog/DeployErrorDialogs"
 import Icon from "src/components/shared/Icon"
 import {
   IGuestToHostMessage,
   IMenuItem,
 } from "src/hocs/withHostCommunication/types"
-import { GitInfo, IGitInfo, PageConfig } from "src/autogen/proto"
+import { Config, GitInfo, IGitInfo, PageConfig } from "src/autogen/proto"
 import { MetricsManager } from "src/lib/MetricsManager"
+import { DEPLOY_URL, STREAMLIT_CLOUD_URL } from "src/urls"
 import {
-  BUG_URL,
-  COMMUNITY_URL,
-  DEPLOY_URL,
-  ONLINE_DOCS_URL,
-  STREAMLIT_CLOUD_URL,
-  TEAMS_URL,
-} from "src/urls"
-import {
+  StyledCoreItem,
+  StyledDevItem,
   StyledMenuDivider,
   StyledMenuItem,
   StyledMenuItemLabel,
   StyledMenuItemShortcut,
   StyledRecordingIndicator,
-  StyledCoreItem,
-  StyledDevItem,
   StyledUl,
 } from "./styled-components"
 
@@ -93,6 +83,9 @@ export interface Props {
   /** Show the About dialog. */
   aboutCallback: () => void
 
+  /** Open the Print Dialog, if the app is in iFrame first open a new tab with app URL */
+  printCallback: () => void
+
   screenCastState: string
 
   hostMenuItems: IMenuItem[]
@@ -115,14 +108,18 @@ export interface Props {
 
   menuItems?: PageConfig.IMenuItems | null
 
-  hostIsOwner?: boolean
+  developmentMode: boolean
+
+  toolbarMode: Config.ToolbarMode
+
+  metricsMgr: MetricsManager
 }
 
 const getOpenInWindowCallback = (url: string) => (): void => {
   window.open(url, "_blank")
 }
 
-const getDeployAppUrl = (gitInfo: IGitInfo | null): (() => void) => {
+export const getDeployAppUrl = (gitInfo: IGitInfo | null): (() => void) => {
   // If the app was run inside a GitHub repo, autofill for a one-click deploy.
   // E.g.: https://share.streamlit.io/deploy?repository=melon&branch=develop&mainModule=streamlit_app.py
   if (gitInfo) {
@@ -159,6 +156,7 @@ export interface SubMenuProps {
   menuItems: any[]
   closeMenu: () => void
   isDevMenu: boolean
+  metricsMgr: MetricsManager
 }
 
 // BaseWeb provides a very basic list item (or option) for its dropdown
@@ -174,7 +172,8 @@ export interface SubMenuProps {
 //  * $isHighlighted field (BaseWeb does not use CSS :hover here)
 //  * creating a forward ref to add properties to the DOM element.
 function buildMenuItemComponent(
-  StyledMenuItemType: typeof StyledCoreItem | typeof StyledDevItem
+  StyledMenuItemType: typeof StyledCoreItem | typeof StyledDevItem,
+  metricsMgr: MetricsManager
 ): any {
   const MenuItem = forwardRef<HTMLLIElement, MenuItemProps>(
     (
@@ -210,7 +209,7 @@ function buildMenuItemComponent(
           ? {}
           : {
               onClick: (e: MouseEvent<HTMLLIElement>) => {
-                MetricsManager.current.enqueue("menuClick", {
+                metricsMgr.enqueue("menuClick", {
                   label,
                 })
                 onClick(e)
@@ -220,7 +219,9 @@ function buildMenuItemComponent(
 
       return (
         <>
-          {hasDividerAbove && <StyledMenuDivider />}
+          {hasDividerAbove && (
+            <StyledMenuDivider data-testid="main-menu-divider" />
+          )}
           <StyledMenuItem
             ref={ref}
             role="option"
@@ -246,27 +247,25 @@ function buildMenuItemComponent(
   return MenuItem
 }
 
-const SubMenu = ({
-  menuItems,
-  closeMenu,
-  isDevMenu,
-}: SubMenuProps): ReactElement => {
-  const { colors }: Theme = useTheme()
-  const StyledMenuItemType = isDevMenu ? StyledDevItem : StyledCoreItem
+const SubMenu = (props: SubMenuProps): ReactElement => {
+  const { colors }: EmotionTheme = useTheme()
+  const StyledMenuItemType = props.isDevMenu ? StyledDevItem : StyledCoreItem
   return (
     <StatefulMenu
-      items={menuItems}
+      items={props.menuItems}
       onItemSelect={({ item }) => {
         item.onClick()
-        closeMenu()
+        props.closeMenu()
       }}
       overrides={{
-        Option: buildMenuItemComponent(StyledMenuItemType),
+        Option: buildMenuItemComponent(StyledMenuItemType, props.metricsMgr),
         List: {
           props: {
             "data-testid": "main-menu-list",
           },
           style: {
+            backgroundColor: "inherit",
+
             ":focus": {
               outline: "none",
             },
@@ -278,10 +277,98 @@ const SubMenu = ({
   )
 }
 
+function getDevMenuItems(
+  coreDevMenuItems: Record<string, any>,
+  showDeploy: boolean
+): any[] {
+  const devMenuItems = []
+  const preferredDevMenuOrder: any[] = [
+    coreDevMenuItems.developerOptions,
+    coreDevMenuItems.clearCache,
+    showDeploy && coreDevMenuItems.deployApp,
+  ]
+
+  let devLastMenuItem = null
+
+  for (const devMenuItem of preferredDevMenuOrder) {
+    if (devMenuItem) {
+      if (devMenuItem !== coreDevMenuItems.DIVIDER) {
+        if (devLastMenuItem === coreDevMenuItems.DIVIDER) {
+          devMenuItems.push({ ...devMenuItem, hasDividerAbove: true })
+        } else {
+          devMenuItems.push(devMenuItem)
+        }
+      }
+
+      devLastMenuItem = devMenuItem
+    }
+  }
+
+  if (devLastMenuItem != null) {
+    devLastMenuItem.styleProps = {
+      margin: "0 0 -.5rem 0",
+      padding: ".25rem 0 .25rem 1.5rem",
+    }
+  }
+  return devMenuItems
+}
+
+function getPreferredMenuOrder(
+  props: Props,
+  hostMenuItems: any[],
+  coreMenuItems: Record<string, any>
+): any[] {
+  let preferredMenuOrder: any[]
+  if (props.toolbarMode == Config.ToolbarMode.MINIMAL) {
+    // If toolbar mode == minimal then show only host menu items if any.
+    preferredMenuOrder = [
+      coreMenuItems.report,
+      coreMenuItems.community,
+      coreMenuItems.DIVIDER,
+      ...(hostMenuItems.length > 0 ? hostMenuItems : [coreMenuItems.DIVIDER]),
+      coreMenuItems.about,
+    ]
+
+    preferredMenuOrder = preferredMenuOrder.filter(d => d)
+    // If the first or last item is a divider, delete it, because
+    // we don't want to start/end the menu with it.
+    // TODO(sfc-gh-kbregula): We should use Array#at when supported by
+    //  browsers/cypress or transpilers.
+    //  See: https://github.com/tc39/proposal-relative-indexing-method
+    while (
+      preferredMenuOrder.length > 0 &&
+      preferredMenuOrder[0] == coreMenuItems.DIVIDER
+    ) {
+      preferredMenuOrder.shift()
+    }
+    while (
+      preferredMenuOrder.length > 0 &&
+      preferredMenuOrder.at(preferredMenuOrder.length - 1) ==
+        coreMenuItems.DIVIDER
+    ) {
+      preferredMenuOrder.pop()
+    }
+    return preferredMenuOrder
+  }
+  return [
+    coreMenuItems.rerun,
+    coreMenuItems.settings,
+    coreMenuItems.DIVIDER,
+    coreMenuItems.print,
+    coreMenuItems.recordScreencast,
+    coreMenuItems.DIVIDER,
+    coreMenuItems.report,
+    coreMenuItems.community,
+    ...(hostMenuItems.length > 0 ? hostMenuItems : [coreMenuItems.DIVIDER]),
+    coreMenuItems.about,
+  ]
+}
+
 function MainMenu(props: Props): ReactElement {
   const isServerDisconnected = !props.isServerConnected
+
   const onClickDeployApp = useCallback((): void => {
-    const { showDeployError, closeDialog, isDeployErrorModalOpen, gitInfo } =
+    const { showDeployError, isDeployErrorModalOpen, gitInfo, closeDialog } =
       props
 
     if (!gitInfo) {
@@ -297,7 +384,6 @@ function MainMenu(props: Props): ReactElement {
       branch,
       module,
       untrackedFiles,
-      uncommittedFiles,
       state: gitState,
     } = gitInfo
     const hasMissingGitInfo = !repository || !branch || !module
@@ -326,30 +412,6 @@ function MainMenu(props: Props): ReactElement {
       return
     }
 
-    if (repository && uncommittedFiles?.length) {
-      const dialog = UncommittedChanges(repository)
-
-      showDeployError(dialog.title, dialog.body)
-
-      return
-    }
-
-    if (gitState === GitStates.AHEAD_OF_REMOTE) {
-      const dialog = RepoIsAhead()
-
-      showDeployError(dialog.title, dialog.body, getDeployAppUrl(gitInfo))
-
-      return
-    }
-
-    if (untrackedFiles?.length) {
-      const dialog = UntrackedFiles()
-
-      showDeployError(dialog.title, dialog.body, getDeployAppUrl(gitInfo))
-
-      return
-    }
-
     // We should close the modal when we try again and everything goes fine
     if (isDeployErrorModalOpen) {
       closeDialog()
@@ -365,6 +427,12 @@ function MainMenu(props: Props): ReactElement {
 
     onClickDeployApp()
   }, [props.gitInfo, props.isDeployErrorModalOpen, onClickDeployApp])
+
+  const showAboutMenu =
+    props.toolbarMode != Config.ToolbarMode.MINIMAL ||
+    (props.toolbarMode == Config.ToolbarMode.MINIMAL &&
+      props.menuItems?.aboutSectionMd)
+
   const coreMenuItems = {
     DIVIDER: { isDivider: true },
     rerun: {
@@ -373,6 +441,7 @@ function MainMenu(props: Props): ReactElement {
       label: "Rerun",
       shortcut: "r",
     },
+    print: { onClick: props.printCallback, label: "Print" },
     recordScreencast: {
       onClick: props.screencastCallback,
       label: SCREENCAST_LABEL[props.screenCastState] || "Record a screencast",
@@ -383,24 +452,24 @@ function MainMenu(props: Props): ReactElement {
       disabled: isServerDisconnected,
       label: "Save a snapshot",
     },
-    ...(!props.menuItems?.hideGetHelp && {
-      community: {
-        onClick: getOpenInWindowCallback(
-          props.menuItems?.getHelpUrl || COMMUNITY_URL
-        ),
-        label: "Get help",
-      },
-    }),
-    ...(!props.menuItems?.hideReportABug && {
-      report: {
-        onClick: getOpenInWindowCallback(
-          props.menuItems?.reportABugUrl || BUG_URL
-        ),
-        label: "Report a bug",
-      },
-    }),
+    ...(!props.menuItems?.hideGetHelp &&
+      props.menuItems?.getHelpUrl && {
+        community: {
+          onClick: getOpenInWindowCallback(props.menuItems?.getHelpUrl),
+          label: "Get help",
+        },
+      }),
+    ...(!props.menuItems?.hideReportABug &&
+      props.menuItems?.reportABugUrl && {
+        report: {
+          onClick: getOpenInWindowCallback(props.menuItems?.reportABugUrl),
+          label: "Report a bug",
+        },
+      }),
     settings: { onClick: props.settingsCallback, label: "Settings" },
-    about: { onClick: props.aboutCallback, label: "About" },
+    ...(showAboutMenu && {
+      about: { onClick: props.aboutCallback, label: "About" },
+    }),
   }
 
   const coreDevMenuItems = {
@@ -425,26 +494,6 @@ function MainMenu(props: Props): ReactElement {
       onClick: props.clearCacheCallback,
       label: "Clear cache",
       shortcut: "c",
-    },
-    s4t: {
-      onClick: getOpenInWindowCallback(TEAMS_URL),
-      label: "Streamlit Cloud",
-    },
-    reportSt: {
-      onClick: getOpenInWindowCallback(BUG_URL),
-      label: "Report a Streamlit bug",
-    },
-    documentation: {
-      onClick: getOpenInWindowCallback(ONLINE_DOCS_URL),
-      label: "Visit Streamlit docs",
-    },
-    visitStForum: {
-      onClick: getOpenInWindowCallback(COMMUNITY_URL),
-      label: "Visit Streamlit forums",
-      styleProps: {
-        margin: "0 0 -.5rem 0",
-        padding: ".25rem 0 .25rem 1.5rem",
-      },
     },
   }
 
@@ -477,27 +526,11 @@ function MainMenu(props: Props): ReactElement {
 
   const shouldShowHostMenu = !!hostMenuItems.length
   const showDeploy = isLocalhost() && !shouldShowHostMenu && props.canDeploy
-  const preferredMenuOrder: any[] = [
-    coreMenuItems.rerun,
-    coreMenuItems.settings,
-    coreMenuItems.DIVIDER,
-    coreMenuItems.recordScreencast,
-    coreMenuItems.DIVIDER,
-    coreMenuItems.report,
-    coreMenuItems.community,
-    ...(shouldShowHostMenu ? hostMenuItems : [coreMenuItems.DIVIDER]),
-    coreMenuItems.about,
-  ]
-
-  const preferredDevMenuOrder: any[] = [
-    coreDevMenuItems.developerOptions,
-    coreDevMenuItems.clearCache,
-    showDeploy && coreDevMenuItems.deployApp,
-    isLocalhost() && coreDevMenuItems.s4t,
-    coreDevMenuItems.reportSt,
-    coreDevMenuItems.documentation,
-    coreDevMenuItems.visitStForum,
-  ]
+  const preferredMenuOrder = getPreferredMenuOrder(
+    props,
+    hostMenuItems,
+    coreMenuItems
+  )
 
   // Remove empty entries, and add dividers into menu options as needed.
   const menuItems: any[] = []
@@ -516,23 +549,14 @@ function MainMenu(props: Props): ReactElement {
     }
   }
 
-  const devMenuItems: any[] = []
-  let devLastMenuItem = null
-  for (const devMenuItem of preferredDevMenuOrder) {
-    if (devMenuItem) {
-      if (devMenuItem !== coreDevMenuItems.DIVIDER) {
-        if (devLastMenuItem === coreDevMenuItems.DIVIDER) {
-          devMenuItems.push({ ...devMenuItem, hasDividerAbove: true })
-        } else {
-          devMenuItems.push(devMenuItem)
-        }
-      }
+  const devMenuItems: any[] = props.developmentMode
+    ? getDevMenuItems(coreDevMenuItems, showDeploy)
+    : []
 
-      devLastMenuItem = devMenuItem
-    }
+  if (menuItems.length == 0 && devMenuItems.length == 0) {
+    // Don't show an empty menu.
+    return <></>
   }
-
-  const { hostIsOwner } = props
 
   return (
     <StatefulPopover
@@ -545,13 +569,21 @@ function MainMenu(props: Props): ReactElement {
       placement={PLACEMENT.bottomRight}
       content={({ close }) => (
         <>
-          <SubMenu menuItems={menuItems} closeMenu={close} isDevMenu={false} />
-          {(hostIsOwner || isLocalhost()) && (
+          {menuItems.length != 0 && (
+            <SubMenu
+              menuItems={menuItems}
+              closeMenu={close}
+              isDevMenu={false}
+              metricsMgr={props.metricsMgr}
+            />
+          )}
+          {devMenuItems.length != 0 && (
             <StyledUl>
               <SubMenu
                 menuItems={devMenuItems}
                 closeMenu={close}
                 isDevMenu={true}
+                metricsMgr={props.metricsMgr}
               />
             </StyledUl>
           )}

@@ -18,20 +18,21 @@ import React, { ReactElement, useEffect, useCallback } from "react"
 import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { BokehChart as BokehChartProto } from "src/autogen/proto"
 
+// We import Bokeh from a vendored source file, because it doesn't play well with Babel (https://github.com/bokeh/bokeh/issues/10658)
+// Importing these files will cause global Bokeh to be mutated
+// Consumers of this component will have to provide these js files
+// bokeh.esm is renamed from bokeh-2.4.3.esm.min.js because addon bokeh scripts have hardcoded path to bokeh main script ("import main from “./bokeh.esm.js")
+import Bokeh from "src/vendor/bokeh/bokeh.esm"
+import "src/vendor/bokeh/bokeh-api-2.4.3.esm.min"
+import "src/vendor/bokeh/bokeh-gl-2.4.3.esm.min"
+import "src/vendor/bokeh/bokeh-mathjax-2.4.3.esm.min"
+import "src/vendor/bokeh/bokeh-tables-2.4.3.esm.min"
+import "src/vendor/bokeh/bokeh-widgets-2.4.3.esm.min"
+
 export interface BokehChartProps {
   width: number
   element: BokehChartProto
   height?: number
-}
-
-declare global {
-  interface Window {
-    Bokeh: {
-      embed: {
-        embed_item: (data: any, chartId: string) => void
-      }
-    }
-  }
 }
 
 interface Dimensions {
@@ -50,22 +51,25 @@ export function BokehChart({
     return JSON.parse(element.figure)
   }, [element])
 
-  const getChartDimensions = (plot: any): Dimensions => {
-    // Default values
-    let chartWidth: number = plot.attributes.plot_width
-    let chartHeight: number = plot.attributes.plot_height
+  const getChartDimensions = useCallback(
+    (plot: any): Dimensions => {
+      // Default values
+      let chartWidth: number = plot.attributes.plot_width
+      let chartHeight: number = plot.attributes.plot_height
 
-    // if is not fullscreen and useContainerWidth==false, we should use default values
-    if (height) {
-      // fullscreen
-      chartWidth = width
-      chartHeight = height
-    } else if (element.useContainerWidth) {
-      chartWidth = width
-    }
+      // if is not fullscreen and useContainerWidth==false, we should use default values
+      if (height) {
+        // fullscreen
+        chartWidth = width
+        chartHeight = height
+      } else if (element.useContainerWidth) {
+        chartWidth = width
+      }
 
-    return { chartWidth, chartHeight }
-  }
+      return { chartWidth, chartHeight }
+    },
+    [element.useContainerWidth, height, width]
+  )
 
   const removeAllChildNodes = (element: Node): void => {
     while (element.lastChild) {
@@ -74,7 +78,6 @@ export function BokehChart({
   }
 
   const updateChart = (data: any): void => {
-    const { Bokeh } = window
     const chart = document.getElementById(chartId)
 
     /**
@@ -110,9 +113,8 @@ export function BokehChart({
   }
 
   const memoizedUpdateChart = useCallback(updateChart, [
-    width,
-    height,
-    element,
+    chartId,
+    getChartDimensions,
   ])
 
   // We only want useEffect to run once per prop update, because of the embed_item

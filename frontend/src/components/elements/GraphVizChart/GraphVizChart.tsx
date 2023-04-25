@@ -25,7 +25,7 @@ import { StyledGraphVizChart } from "./styled-components"
 export interface GraphVizChartProps {
   width: number
   element: GraphVizChartProto
-  height: number | undefined
+  height?: number
 }
 
 interface Dimensions {
@@ -69,8 +69,7 @@ export function GraphVizChart({
   const updateChart = (): void => {
     try {
       // Layout and render the graph
-      const graph = select(`#${chartId}`)
-        .graphviz()
+      const graph = graphviz(`#${chartId}`)
         .zoom(false)
         .fit(true)
         .scale(1)

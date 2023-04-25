@@ -21,7 +21,8 @@ import { ReactWrapper } from "enzyme"
 import { PageConfig } from "src/autogen/proto"
 import { mount } from "src/lib/test_util"
 import { spacing } from "src/theme/primitives/spacing"
-import lightTheme from "src/theme/lightTheme"
+import emotionLightTheme from "src/theme/emotionLightTheme"
+import { mockEndpoints } from "src/lib/mocks/mocks"
 import Sidebar, { SidebarProps } from "./Sidebar"
 import SidebarNav from "./SidebarNav"
 
@@ -30,8 +31,9 @@ expect.extend(matchers)
 function renderSideBar(props: Partial<SidebarProps> = {}): ReactWrapper {
   return mount(
     <Sidebar
+      endpoints={mockEndpoints()}
       chevronDownshift={0}
-      theme={lightTheme}
+      theme={emotionLightTheme}
       appPages={[]}
       onPageChange={jest.fn()}
       currentPageScriptHash={""}

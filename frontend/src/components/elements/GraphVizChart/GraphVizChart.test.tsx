@@ -15,28 +15,25 @@
  */
 
 import React from "react"
-import { select } from "d3"
+import { graphviz } from "d3-graphviz"
 import { logError } from "src/lib/log"
 import { mount } from "src/lib/test_util"
 import { GraphVizChart as GraphVizChartProto } from "src/autogen/proto"
 import { GraphVizChart, GraphVizChartProps } from "./GraphVizChart"
 
-jest.mock("d3", () => ({
-  select: jest.fn().mockReturnValue({
-    graphviz: jest.fn().mockReturnValue({
-      zoom: () => ({
-        fit: () => ({
-          scale: () => ({
-            renderDot: () => ({
-              on: jest.fn(),
-            }),
+jest.mock("d3-graphviz", () => ({
+  graphviz: jest.fn().mockReturnValue({
+    zoom: () => ({
+      fit: () => ({
+        scale: () => ({
+          renderDot: () => ({
+            on: jest.fn(),
           }),
         }),
       }),
     }),
   }),
 }))
-jest.mock("d3-graphviz")
 jest.mock("src/lib/log", () => ({
   logError: jest.fn(),
   logMessage: jest.fn(),
@@ -56,7 +53,7 @@ const getProps = (
 
 describe("GraphVizChart Element", () => {
   beforeEach(() => {
-    // @ts-ignore
+    // @ts-expect-error
     logError.mockClear()
   })
 
@@ -66,8 +63,7 @@ describe("GraphVizChart Element", () => {
 
     expect(wrapper.find("StyledGraphVizChart").length).toBe(1)
     expect(logError).not.toHaveBeenCalled()
-    // @ts-ignore
-    expect(select().graphviz).toHaveBeenCalled()
+    expect(graphviz).toHaveBeenCalled()
   })
 
   it("should call updateChart and log error when crashes", () => {
@@ -76,7 +72,7 @@ describe("GraphVizChart Element", () => {
     })
     const wrapper = mount(<GraphVizChart {...props} />)
 
-    // @ts-ignore
+    // @ts-expect-error
     logError.mockClear()
 
     wrapper.setProps({

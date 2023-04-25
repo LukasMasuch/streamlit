@@ -55,6 +55,27 @@ _OBJECT_NAME_MAPPING: Final = {
 
 # A list of dependencies to check for attribution
 _ATTRIBUTIONS_TO_CHECK: Final = [
+    # LLM Tools:
+    "openai",
+    "langchain",
+    "llama_index",
+    "llama_cpp",
+    "anthropic",
+    "pyllamacpp",
+    "cohere",
+    "transformers",
+    "nomic",
+    "diffusers",
+    # Vector Stores:
+    "pgvector",
+    "faiss",
+    "pinecone",
+    "chromadb",
+    "weaviate",
+    "qdrant_client",
+    # Others:
+    "huggingface_hub",
+    "datasets",
     "snowflake",
     "torch",
     "tensorflow",
@@ -277,7 +298,7 @@ def gather_metrics(name: str, func: Optional[F] = None) -> Union[Callable[[F], F
         # get_script_run_ctx gets imported here to prevent circular dependencies
         from streamlit.runtime.scriptrunner import get_script_run_ctx
 
-        ctx = get_script_run_ctx()
+        ctx = get_script_run_ctx(suppress_warning=True)
 
         tracking_activated = (
             ctx is not None

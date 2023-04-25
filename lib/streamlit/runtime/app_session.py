@@ -180,7 +180,7 @@ class AppSession:
         self._stop_pages_listener = source_util.register_pages_changed_callback(
             self._on_pages_changed
         )
-        secrets_singleton._file_change_listener.connect(self._on_secrets_file_changed)
+        secrets_singleton.file_change_listener.connect(self._on_secrets_file_changed)
 
     def disconnect_file_watchers(self) -> None:
         """Disconnect the file watcher handlers registered by register_file_watchers."""
@@ -191,9 +191,7 @@ class AppSession:
         if self._stop_pages_listener is not None:
             self._stop_pages_listener()
 
-        secrets_singleton._file_change_listener.disconnect(
-            self._on_secrets_file_changed
-        )
+        secrets_singleton.file_change_listener.disconnect(self._on_secrets_file_changed)
 
         self._local_sources_watcher = None
         self._stop_config_listener = None
@@ -232,9 +230,8 @@ class AppSession:
 
             # Shut down the ScriptRunner, if one is active.
             # self._state must not be set to SHUTDOWN_REQUESTED until
-            # after this is called.
-            if self._scriptrunner is not None:
-                self._scriptrunner.request_stop()
+            # *after* this is called.
+            self.request_script_stop()
 
             self._state = AppSessionState.SHUTDOWN_REQUESTED
 
@@ -365,6 +362,14 @@ class AppSession:
         # request - so we'll create and start a new ScriptRunner.
         self._create_scriptrunner(rerun_data)
 
+    def request_script_stop(self) -> None:
+        """Request that the scriptrunner stop execution.
+
+        Does nothing if no scriptrunner exists.
+        """
+        if self._scriptrunner is not None:
+            self._scriptrunner.request_stop()
+
     def _create_scriptrunner(self, initial_rerun_data: RerunData) -> None:
         """Create and run a new ScriptRunner with the given RerunData."""
         self._scriptrunner = ScriptRunner(
@@ -409,7 +414,7 @@ class AppSession:
             self._enqueue_forward_msg(self._create_file_change_message())
 
     def _on_secrets_file_changed(self, _) -> None:
-        """Called when `secrets._file_change_listener` emits a Signal."""
+        """Called when `secrets.file_change_listener` emits a Signal."""
 
         # NOTE: At the time of writing, this function only calls `_on_source_file_changed`.
         # The reason behind creating this function instead of just passing `_on_source_file_changed`
@@ -519,7 +524,6 @@ class AppSession:
             event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_SUCCESS
             or event == ScriptRunnerEvent.SCRIPT_STOPPED_WITH_COMPILE_ERROR
         ):
-
             if self._state != AppSessionState.SHUTDOWN_REQUESTED:
                 self._state = AppSessionState.APP_NOT_RUNNING
 
@@ -698,8 +702,7 @@ class AppSession:
 
     def _handle_stop_script_request(self) -> None:
         """Tell the ScriptRunner to stop running its script."""
-        if self._scriptrunner is not None:
-            self._scriptrunner.request_stop()
+        self.request_script_stop()
 
     def _handle_clear_cache_request(self) -> None:
         """Clear this app's cache.
@@ -727,6 +730,27 @@ class AppSession:
         self._enqueue_forward_msg(self._create_session_status_changed_message())
 
 
+# Config.ToolbarMode.ValueType does not exist at runtime (only in the pyi stubs), so
+# we need to use quotes.
+# This field will be available at runtime as of protobuf 3.20.1, but
+# we are using an older version.
+# For details, see: https://github.com/protocolbuffers/protobuf/issues/8175
+def _get_toolbar_mode() -> "Config.ToolbarMode.ValueType":
+    config_key = "client.toolbarMode"
+    config_value = config.get_option(config_key)
+    enum_value: Optional["Config.ToolbarMode.ValueType"] = getattr(
+        Config.ToolbarMode, config_value.upper()
+    )
+    if enum_value is None:
+        allowed_values = ", ".join(k.lower() for k in Config.ToolbarMode.keys())
+        raise ValueError(
+            f"Config {config_key!r} expects to have one of "
+            f"the following values: {allowed_values}. "
+            f"Current value: {config_value}"
+        )
+    return enum_value
+
+
 def _populate_config_msg(msg: Config) -> None:
     msg.gather_usage_stats = config.get_option("browser.gatherUsageStats")
     msg.max_cached_message_age = config.get_option("global.maxCachedMessageAge")
@@ -734,6 +758,7 @@ def _populate_config_msg(msg: Config) -> None:
     msg.allow_run_on_save = config.get_option("server.allowRunOnSave")
     msg.hide_top_bar = config.get_option("ui.hideTopBar")
     msg.hide_sidebar_nav = config.get_option("ui.hideSidebarNav")
+    msg.toolbar_mode = _get_toolbar_mode()
 
 
 def _populate_theme_msg(msg: CustomThemeConfig) -> None:
@@ -786,10 +811,6 @@ def _populate_theme_msg(msg: CustomThemeConfig) -> None:
 def _populate_user_info_msg(msg: UserInfo) -> None:
     msg.installation_id = Installation.instance().installation_id
     msg.installation_id_v3 = Installation.instance().installation_id_v3
-    if Credentials.get_current().activation:
-        msg.email = Credentials.get_current().activation.email
-    else:
-        msg.email = ""
 
 
 def _populate_app_pages(

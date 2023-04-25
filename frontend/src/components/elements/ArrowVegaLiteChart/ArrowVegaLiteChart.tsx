@@ -24,7 +24,7 @@ import { logMessage } from "src/lib/log"
 import withFullScreenWrapper from "src/hocs/withFullScreenWrapper"
 import { ensureError } from "src/lib/ErrorHandling"
 import { IndexTypeName, Quiver } from "src/lib/Quiver"
-import { Theme } from "src/theme"
+import { EmotionTheme } from "src/theme"
 
 import { applyStreamlitTheme, applyThemeDefaults } from "./CustomTheme"
 import { StyledVegaLiteChartContainer } from "./styled-components"
@@ -52,7 +52,7 @@ const SUPPORTED_INDEX_TYPES = new Set([
 
 interface Props {
   element: VegaLiteChartElement
-  theme: Theme
+  theme: EmotionTheme
   width: number
 }
 
@@ -97,7 +97,7 @@ export interface WrappedNamedDataset {
 }
 
 export interface PropsWithHeight extends Props {
-  height: number | undefined
+  height?: number
 }
 
 interface State {
@@ -405,7 +405,6 @@ function getDataArrays(
   const datasetArrays: { [dataset: string]: any[] } = {}
 
   for (const [name, dataset] of Object.entries(datasets)) {
-    // @ts-ignore
     datasetArrays[name] = getDataArray(dataset)
   }
 
