@@ -28,7 +28,9 @@ import { notNullOrUndefined, isNullOrUndefined } from "src/lib/utils"
 import {
   BaseColumn,
   BaseColumnProps,
-  ColumnCreator,
+  DateColumn,
+  TimeColumn,
+  DateTimeColumn,
   ObjectColumn,
   BooleanColumn,
   NumberColumn,
@@ -36,6 +38,7 @@ import {
   CategoricalColumn,
   ListColumn,
   isErrorCell,
+  ColumnCreator,
 } from "./columns"
 
 /**
@@ -140,17 +143,16 @@ export function getColumnTypeFromArrow(arrowType: ArrowType): ColumnCreator {
   if (["unicode", "empty"].includes(typeName)) {
     return TextColumn
   }
-  if (
-    [
-      "object",
-      "date",
-      "time",
-      "datetime",
-      "datetimetz",
-      "decimal",
-      "bytes",
-    ].includes(typeName)
-  ) {
+  if (["datetime", "datetimetz"].includes(typeName)) {
+    return DateTimeColumn
+  }
+  if (typeName === "time") {
+    return TimeColumn
+  }
+  if (typeName === "date") {
+    return DateColumn
+  }
+  if (["object", "decimal", "bytes"].includes(typeName)) {
     return ObjectColumn
   }
   if (["bool"].includes(typeName)) {

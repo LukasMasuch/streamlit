@@ -19,6 +19,7 @@ from __future__ import annotations
 import contextlib
 import re
 import types
+from datetime import date, datetime, time
 from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,
@@ -983,3 +984,49 @@ def maybe_raise_label_warnings(label: Optional[str], label_visibility: Optional[
             f"Unsupported label_visibility option '{label_visibility}'. "
             f"Valid values are 'visible', 'hidden' or 'collapsed'."
         )
+
+
+def can_be_float_or_int(value: str | int | float) -> bool:
+    if isinstance(value, (int, float)):
+        return True
+    if value.isdigit():
+        return True
+    elif value.replace(".", "", 1).isdigit() and value.count(".") < 2:
+        return True
+    else:
+        return False
+
+
+def maybe_convert_datetime_date_edit_df(value: Union[str, int, float]) -> date | None:
+    converted_datetime = maybe_convert_datetime_datetime_edit_df(value)
+    if converted_datetime is None:
+        return None
+    else:
+        return converted_datetime.date()
+
+
+def maybe_convert_datetime_time_edit_df(value: Union[str, int, float]) -> time | None:
+    converted_datetime = maybe_convert_datetime_datetime_edit_df(value)
+    if converted_datetime is None:
+        return None
+    else:
+        return converted_datetime.time()
+
+
+def maybe_convert_datetime_datetime_edit_df(value) -> datetime | None:
+    try:
+        import dateutil.parser
+        from dateutil.tz import tzutc
+
+        # handle pasting as the input is a string type but actually a number
+        if isinstance(value, str) and not can_be_float_or_int(value):
+            date_converted = dateutil.parser.isoparse(value).astimezone(tz=tzutc())
+        elif can_be_float_or_int(value) or isinstance(value, (int, float)):
+            # Python datetime uses microseconds, but JS & Moment uses milliseconds
+            date_converted = datetime.fromtimestamp(float(value) / 1000).astimezone(
+                tz=tzutc()
+            )
+        return date_converted
+    except Exception as e:
+        _LOGGER.info(f"Failed to convert the edited cell to datetime. Exception: {e}")
+    return None

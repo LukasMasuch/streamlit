@@ -54,6 +54,7 @@ import {
 import { StyledResizableContainer } from "./styled-components"
 
 import "@glideapps/glide-data-grid/dist/index.css"
+import DatetimePickerCell from "./customCells/DatetimePickerCell"
 
 // Min column width used for manual and automatic resizing
 const MIN_COLUMN_WIDTH = 50
